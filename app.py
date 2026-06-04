@@ -53,6 +53,7 @@ from services.billing_service import (
     create_billing_portal_session,
     create_credit_checkout_session,
     create_pro_checkout_session,
+    get_billing_diagnostics,
     payments_configured,
 )
 from services.openai_service import generate_career_materials, is_demo_mode_api_key
@@ -405,10 +406,14 @@ def _start_checkout(product_type: str) -> None:
         checkout = create_credit_checkout_session(user_id)
         state_key = "credit_checkout_url"
 
+    diagnostics = get_billing_diagnostics()
+    st.session_state["last_checkout_exception"] = diagnostics.get("last_checkout_exception", "")
+
     if checkout.get("ok") and checkout.get("checkout_url"):
         st.session_state[state_key] = checkout["checkout_url"]
         st.success(checkout.get("message", "Stripe Checkout is ready."))
     else:
+        st.session_state[state_key] = ""
         st.error(checkout.get("message", "Unable to start checkout."))
 
 
@@ -692,6 +697,7 @@ def init_state() -> None:
         "pro_checkout_url": "",
         "credit_checkout_url": "",
         "billing_portal_url": "",
+        "last_checkout_exception": "",
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
@@ -1995,6 +2001,7 @@ def render_pro_page() -> None:
     st.subheader("Career Match Pro")
     _checkout_status_notice()
     subscription = get_subscription_blueprint()
+    billing_diagnostics = get_billing_diagnostics()
     access = _assessment_access() if st.session_state.get("is_authenticated") else {
         "used": 0,
         "remaining": 1,
@@ -2058,6 +2065,19 @@ def render_pro_page() -> None:
         if st.button("Back to Home", key="pro_home", use_container_width=True):
             _set_view("home")
             st.rerun()
+
+    with st.expander("Temporary Stripe Diagnostics"):
+        st.write(f"**Stripe configured:** {'Yes' if billing_diagnostics.get('stripe_configured') else 'No'}")
+        st.write(f"**Price ID loaded:** {billing_diagnostics.get('pro_monthly_price_id') or 'Missing'}")
+        st.write(f"**Endpoint being called:** {billing_diagnostics.get('endpoint')}")
+        st.write(f"**APP_BASE_URL:** {billing_diagnostics.get('app_base_url')}")
+        st.write(f"**Success URL:** {billing_diagnostics.get('success_url')}")
+        st.write(f"**Cancel URL:** {billing_diagnostics.get('cancel_url')}")
+        st.write(f"**Authenticated user:** {st.session_state.get('user_email', '') or 'Not signed in'}")
+        st.write(
+            f"**Last checkout exception:** "
+            f"{st.session_state.get('last_checkout_exception') or billing_diagnostics.get('last_checkout_exception') or 'None'}"
+        )
 
 
 def render_contact_page() -> None:

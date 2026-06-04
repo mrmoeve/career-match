@@ -21,6 +21,10 @@ services:
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
+      - key: STRIPE_PRO_MONTHLY_PRICE_ID
+        sync: false
+      - key: STRIPE_ONE_TIME_ASSESSMENT_PRICE_ID
+        sync: false
       - key: APP_BASE_URL
         sync: false
       - key: SENTRY_DSN

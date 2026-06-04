@@ -7,6 +7,8 @@ try:
 except Exception:  # pragma: no cover - dependency may be absent before install
     stripe = None
 
+from services.runtime_service import get_logger
+
 from database.db import (
     PaymentRecord,
     add_assessment_credits,
@@ -24,6 +26,9 @@ from database.db import (
 PRO_MONTHLY_AMOUNT = 1900
 ASSESSMENT_CREDIT_AMOUNT = 499
 DEFAULT_CURRENCY = "usd"
+CHECKOUT_HANDLER_NAME = "Direct Streamlit handler -> services.billing_service.create_pro_checkout_session()"
+_LAST_CHECKOUT_EXCEPTION = ""
+logger = get_logger()
 
 
 def _stripe_available() -> bool:
@@ -39,6 +44,14 @@ def _publishable_key() -> str:
         os.getenv("STRIPE_PUBLISHABLE_KEY", "").strip()
         or os.getenv("STRIPE_PUBLIC_KEY", "").strip()
     )
+
+
+def _pro_monthly_price_id() -> str:
+    return os.getenv("STRIPE_PRO_MONTHLY_PRICE_ID", "").strip()
+
+
+def _assessment_credit_price_id() -> str:
+    return os.getenv("STRIPE_ONE_TIME_ASSESSMENT_PRICE_ID", "").strip()
 
 
 def _webhook_secret() -> str:
@@ -78,6 +91,24 @@ def _configure_stripe() -> None:
     stripe.api_key = _secret_key()
 
 
+def _stripe_value(resource: Any, key: str, default: Any = "") -> Any:
+    if resource is None:
+        return default
+    try:
+        if isinstance(resource, dict):
+            return resource.get(key, default)
+    except Exception:
+        pass
+    try:
+        return getattr(resource, key)
+    except Exception:
+        pass
+    try:
+        return resource[key]
+    except Exception:
+        return default
+
+
 def _success_url(view: str = "app") -> str:
     return f"{_app_base_url()}/?view={view}&checkout=success"
 
@@ -97,23 +128,62 @@ def _get_or_create_customer(user: dict) -> str:
     existing = (user.get("stripe_customer_id") or "").strip()
     if existing:
         return existing
+    logger.info("Creating Stripe customer for user_email=%s user_id=%s", user.get("email", ""), user.get("id", 0))
     customer = stripe.Customer.create(
         email=user.get("email", ""),
         name=user.get("full_name", "") or user.get("email", ""),
         metadata={"user_id": str(user.get("id", 0)), "user_email": user.get("email", "")},
     )
-    customer_id = customer.get("id", "")
+    customer_id = _stripe_value(customer, "id", "")
     if customer_id:
         set_stripe_customer_details(user.get("email", ""), stripe_customer_id=customer_id)
     return customer_id
 
 
+def _set_last_checkout_exception(message: str) -> None:
+    global _LAST_CHECKOUT_EXCEPTION
+    _LAST_CHECKOUT_EXCEPTION = (message or "").strip()
+
+
+def get_last_checkout_exception() -> str:
+    return _LAST_CHECKOUT_EXCEPTION
+
+
+def get_billing_diagnostics() -> dict:
+    return {
+        "stripe_configured": payments_configured(),
+        "publishable_key_loaded": bool(_publishable_key()),
+        "secret_key_loaded": bool(_secret_key()),
+        "webhook_secret_loaded": bool(_webhook_secret()),
+        "app_base_url": _app_base_url(),
+        "success_url": _success_url("app"),
+        "cancel_url": _cancel_url("pro"),
+        "endpoint": CHECKOUT_HANDLER_NAME,
+        "pro_monthly_price_id": _pro_monthly_price_id(),
+        "assessment_credit_price_id": _assessment_credit_price_id(),
+        "last_checkout_exception": get_last_checkout_exception(),
+    }
+
+
 def create_pro_checkout_session(user_id: int) -> dict:
     if not payments_configured():
         return {"ok": False, "message": "Stripe test mode is not configured yet.", "checkout_url": ""}
+    price_id = _pro_monthly_price_id()
+    if not price_id:
+        return {"ok": False, "message": "STRIPE_PRO_MONTHLY_PRICE_ID is not configured.", "checkout_url": ""}
     try:
+        _set_last_checkout_exception("")
         _configure_stripe()
         user = _ensure_user(user_id)
+        logger.info(
+            "Received Pro checkout request. handler=%s user_id=%s user_email=%s price_id=%s success_url=%s cancel_url=%s",
+            CHECKOUT_HANDLER_NAME,
+            user_id,
+            user.get("email", ""),
+            price_id,
+            _success_url("app"),
+            _cancel_url("pro"),
+        )
         customer_id = _get_or_create_customer(user)
         session = stripe.checkout.Session.create(
             mode="subscription",
@@ -136,37 +206,69 @@ def create_pro_checkout_session(user_id: int) -> dict:
             },
             line_items=[
                 {
-                    "price_data": {
-                        "currency": DEFAULT_CURRENCY,
-                        "unit_amount": PRO_MONTHLY_AMOUNT,
-                        "recurring": {"interval": "month"},
-                        "product_data": {
-                            "name": "Career Match Pro",
-                            "description": "Unlimited assessments, resume optimization, interview prep, cover letters, and exports.",
-                        },
-                    },
+                    "price": price_id,
                     "quantity": 1,
                 }
             ],
         )
+        checkout_url = _stripe_value(session, "url", "")
+        session_id = _stripe_value(session, "id", "")
+        logger.info(
+            "Stripe checkout session created. user_id=%s session_id=%s checkout_url=%s",
+            user_id,
+            session_id,
+            checkout_url,
+        )
         return {
             "ok": True,
             "message": "Secure Stripe Checkout is ready.",
-            "checkout_url": session.get("url", ""),
-            "session_id": session.get("id", ""),
+            "checkout_url": checkout_url,
+            "session_id": session_id,
             "product_type": "pro_monthly",
         }
     except Exception as exc:
-        return {"ok": False, "message": f"Unable to start Stripe Checkout: {exc}", "checkout_url": ""}
+        error_message = f"{type(exc).__name__}: {exc}"
+        _set_last_checkout_exception(error_message)
+        logger.exception(
+            "Unable to start Pro Stripe Checkout. user_id=%s price_id=%s",
+            user_id,
+            price_id,
+        )
+        return {"ok": False, "message": f"Unable to start Stripe Checkout: {error_message}", "checkout_url": ""}
 
 
 def create_credit_checkout_session(user_id: int) -> dict:
     if not payments_configured():
         return {"ok": False, "message": "Stripe test mode is not configured yet.", "checkout_url": ""}
     try:
+        _set_last_checkout_exception("")
         _configure_stripe()
         user = _ensure_user(user_id)
+        price_id = _assessment_credit_price_id()
+        logger.info(
+            "Received assessment credit checkout request. user_id=%s user_email=%s price_id=%s success_url=%s cancel_url=%s",
+            user_id,
+            user.get("email", ""),
+            price_id or "inline_price_data",
+            _success_url("app"),
+            _cancel_url("pro"),
+        )
         customer_id = _get_or_create_customer(user)
+        line_item: dict[str, Any]
+        if price_id:
+            line_item = {"price": price_id, "quantity": 1}
+        else:
+            line_item = {
+                "price_data": {
+                    "currency": DEFAULT_CURRENCY,
+                    "unit_amount": ASSESSMENT_CREDIT_AMOUNT,
+                    "product_data": {
+                        "name": "Career Match Assessment Credit",
+                        "description": "One additional Career Match assessment credit. Credits do not expire.",
+                    },
+                },
+                "quantity": 1,
+            }
         session = stripe.checkout.Session.create(
             mode="payment",
             success_url=_success_url("app"),
@@ -178,29 +280,28 @@ def create_credit_checkout_session(user_id: int) -> dict:
                 "user_email": user.get("email", ""),
                 "product_type": "one_time_assessment",
             },
-            line_items=[
-                {
-                    "price_data": {
-                        "currency": DEFAULT_CURRENCY,
-                        "unit_amount": ASSESSMENT_CREDIT_AMOUNT,
-                        "product_data": {
-                            "name": "Career Match Assessment Credit",
-                            "description": "One additional Career Match assessment credit. Credits do not expire.",
-                        },
-                    },
-                    "quantity": 1,
-                }
-            ],
+            line_items=[line_item],
+        )
+        checkout_url = _stripe_value(session, "url", "")
+        session_id = _stripe_value(session, "id", "")
+        logger.info(
+            "Stripe assessment checkout session created. user_id=%s session_id=%s checkout_url=%s",
+            user_id,
+            session_id,
+            checkout_url,
         )
         return {
             "ok": True,
             "message": "Secure Stripe Checkout is ready.",
-            "checkout_url": session.get("url", ""),
-            "session_id": session.get("id", ""),
+            "checkout_url": checkout_url,
+            "session_id": session_id,
             "product_type": "one_time_assessment",
         }
     except Exception as exc:
-        return {"ok": False, "message": f"Unable to start Stripe Checkout: {exc}", "checkout_url": ""}
+        error_message = f"{type(exc).__name__}: {exc}"
+        _set_last_checkout_exception(error_message)
+        logger.exception("Unable to start assessment Stripe Checkout. user_id=%s", user_id)
+        return {"ok": False, "message": f"Unable to start Stripe Checkout: {error_message}", "checkout_url": ""}
 
 
 def create_billing_portal_session(user_email: str) -> dict:
@@ -212,11 +313,12 @@ def create_billing_portal_session(user_email: str) -> dict:
         return {"ok": False, "message": "No Stripe customer is attached to this account yet.", "portal_url": ""}
     try:
         _configure_stripe()
+        logger.info("Opening Stripe billing portal for user_email=%s customer_id=%s", user_email, customer_id)
         session = stripe.billing_portal.Session.create(
             customer=customer_id,
             return_url=f"{_app_base_url()}/?view=app",
         )
-        return {"ok": True, "message": "Billing portal ready.", "portal_url": session.get("url", "")}
+        return {"ok": True, "message": "Billing portal ready.", "portal_url": _stripe_value(session, "url", "")}
     except Exception as exc:
         return {"ok": False, "message": f"Unable to open the billing portal: {exc}", "portal_url": ""}
 
@@ -231,12 +333,12 @@ def cancel_subscription(user_email: str) -> dict:
     try:
         _configure_stripe()
         subscription = stripe.Subscription.modify(subscription_id, cancel_at_period_end=True)
-        period_end = _from_unix(subscription.get("current_period_end"))
+        period_end = _from_unix(_stripe_value(subscription, "current_period_end"))
         set_subscription_plan(
             user_email,
             subscription_status="active",
             subscription_plan="pro",
-            subscription_start=_from_unix(subscription.get("current_period_start")),
+            subscription_start=_from_unix(_stripe_value(subscription, "current_period_start")),
             subscription_end=period_end,
         )
         return {
