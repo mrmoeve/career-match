@@ -1,0 +1,12 @@
+[server]
+headless = true
+enableStaticServing = true
+maxUploadSize = 200
+enableXsrfProtection = true
+port = 8501
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "light"

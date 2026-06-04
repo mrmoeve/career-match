@@ -1,0 +1,19 @@
+JORDAN LEE
+New York, NY | jordan.lee@example.com | 555-0102
+
+PROFESSIONAL SUMMARY
+Finance analyst with 4 years of experience in FP&A, budgeting, financial modeling, variance analysis, and executive reporting. Advanced Excel and SQL user with experience building dashboards and presenting insights to senior stakeholders.
+
+EXPERIENCE
+Senior Finance Analyst | Harbor Peak Retail | 2023-Present
+- Built monthly forecasting models for a $45M operating budget, improving forecast accuracy by 12%.
+- Automated KPI reporting in Excel and SQL, reducing reporting cycle time by 30%.
+- Partnered with business leaders on headcount planning, variance analysis, and board-ready presentations.
+
+Finance Analyst | Northstar Services | 2021-2023
+- Supported annual budgeting, monthly close analysis, and cash flow tracking.
+- Created management reporting packs in PowerPoint and Excel for leadership reviews.
+- Worked with accounting partners to explain budget-to-actual variances and expense trends.
+
+SKILLS
+Financial modeling, budgeting, forecasting, FP&A, variance analysis, Excel, SQL, PowerPoint, financial analysis, KPI reporting, stakeholder communication
