@@ -1,11 +1,22 @@
 :10000 {
     encode gzip zstd
+    log {
+        output stdout
+        format console
+    }
 
     redir /ats-checker /?view=ats-checker 302
     redir /resume-builder /?view=resume-builder 302
     redir /interview-prep /?view=interview-prep 302
     redir /cover-letter-generator /?view=cover-letter-generator 302
     redir /linkedin-message-generator /?view=linkedin-message-generator 302
+
+    @allowed_hosts host localhost 127.0.0.1 career-match-w54c.onrender.com *.onrender.com
+    @disallowed_hosts not host localhost 127.0.0.1 career-match-w54c.onrender.com *.onrender.com
+
+    handle @disallowed_hosts {
+        respond "host not allowed" 403
+    }
 
     @pwa path /manifest.webmanifest /sw.js /icon-192.png /icon-512.png /apple-touch-icon.png /favicon.png /offline.html
     handle @pwa {
@@ -22,7 +33,14 @@
         reverse_proxy 127.0.0.1:8601
     }
 
-    handle {
-        reverse_proxy 127.0.0.1:8501
+    handle @allowed_hosts {
+        reverse_proxy 127.0.0.1:8501 {
+            header_up Host 127.0.0.1:8501
+            header_up X-Forwarded-Host {host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Request-Host {host}
+            header_up X-Allowed-Hosts "localhost,127.0.0.1,career-match-w54c.onrender.com,*.onrender.com"
+            header_up X-Host-Validation-Result allowed
+        }
     }
 }

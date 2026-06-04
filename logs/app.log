@@ -6,3 +6,154 @@
 2026-06-04 07:27:58,835 INFO [career_match] App booted. version=v0.4.0-quality pid=55940
 2026-06-04 07:27:58,839 INFO [career_match] Starting analysis workflow.
 2026-06-04 07:27:58,935 INFO [career_match] Analysis workflow completed successfully.
+2026-06-04 11:23:30,789 INFO [career_match] Database engine active: sqlite (applications.db)
+2026-06-04 11:23:30,985 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:31,085 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:31,111 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:31,212 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:31,290 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:31,427 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:31,539 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:31,646 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:31,652 INFO [career_match] Starting analysis workflow.
+2026-06-04 11:23:31,751 INFO [career_match] Analysis workflow completed successfully.
+2026-06-04 11:23:32,026 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:32,287 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:32,317 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:32,325 INFO [career_match] Stripe webhook applied one-time assessment credit. user_email=career-match-cf5b5360@example.com session_id=test_credit_session
+2026-06-04 11:23:32,426 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:32,689 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:32,694 INFO [career_match] Starting analysis workflow.
+2026-06-04 11:23:32,781 INFO [career_match] Analysis workflow completed successfully.
+2026-06-04 11:23:32,930 INFO [career_match] Stripe webhook activated Pro subscription. user_email=career-match-cf5b5360@example.com customer_id=cus_test_123 subscription_id=sub_test_123 period_end=2026-07-04T12:00:00
+2026-06-04 11:23:33,084 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:33,342 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:33,349 INFO [career_match] Starting analysis workflow.
+2026-06-04 11:23:33,436 INFO [career_match] Analysis workflow completed successfully.
+2026-06-04 11:23:33,678 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:33,780 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:33,880 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:33,983 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:34,009 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:34,128 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:34,380 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:34,406 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:23:34,512 INFO [career_match] App booted. version=v0.4.0-quality pid=3416
+2026-06-04 11:26:09,746 INFO [career_match] Database engine active: sqlite (applications.db)
+2026-06-04 11:26:09,985 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:10,099 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:10,128 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:10,235 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:10,327 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:10,459 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:10,568 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:10,681 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:10,687 INFO [career_match] Starting analysis workflow.
+2026-06-04 11:26:10,783 INFO [career_match] Analysis workflow completed successfully.
+2026-06-04 11:26:11,054 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:11,318 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:11,349 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:11,359 INFO [career_match] Stripe webhook applied one-time assessment credit. user_email=career-match-27cfa6c0@example.com session_id=test_credit_session
+2026-06-04 11:26:11,468 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:11,733 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:11,740 INFO [career_match] Starting analysis workflow.
+2026-06-04 11:26:11,889 INFO [career_match] Analysis workflow completed successfully.
+2026-06-04 11:26:12,063 INFO [career_match] Stripe webhook activated Pro subscription. user_email=career-match-27cfa6c0@example.com customer_id=cus_test_123 subscription_id=sub_test_123 period_end=2026-07-04T12:00:00
+2026-06-04 11:26:12,167 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:12,420 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:12,425 INFO [career_match] Starting analysis workflow.
+2026-06-04 11:26:12,511 INFO [career_match] Analysis workflow completed successfully.
+2026-06-04 11:26:12,760 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:12,867 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:12,975 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:13,083 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:13,110 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:13,216 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:13,507 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:13,539 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:26:13,653 INFO [career_match] App booted. version=v0.4.0-quality pid=5684
+2026-06-04 11:39:06,488 INFO [career_match] Database engine active: sqlite (applications.db)
+2026-06-04 11:39:06,722 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:06,851 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:06,883 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:07,000 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:07,088 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:07,229 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:07,343 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:07,461 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:07,466 INFO [career_match] Starting analysis workflow.
+2026-06-04 11:39:07,563 INFO [career_match] Analysis workflow completed successfully.
+2026-06-04 11:39:07,842 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:08,109 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:08,140 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:08,149 INFO [career_match] Stripe webhook applied one-time assessment credit. user_email=career-match-a634e483@example.com session_id=test_credit_session
+2026-06-04 11:39:08,259 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:08,519 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:08,525 INFO [career_match] Starting analysis workflow.
+2026-06-04 11:39:08,612 INFO [career_match] Analysis workflow completed successfully.
+2026-06-04 11:39:08,777 INFO [career_match] Stripe webhook activated Pro subscription. user_email=career-match-a634e483@example.com customer_id=cus_test_123 subscription_id=sub_test_123 period_end=2026-07-04T12:00:00
+2026-06-04 11:39:08,883 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:09,138 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:09,144 INFO [career_match] Starting analysis workflow.
+2026-06-04 11:39:09,229 INFO [career_match] Analysis workflow completed successfully.
+2026-06-04 11:39:09,484 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:09,595 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:09,703 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:09,812 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:09,840 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:09,950 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:10,239 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:10,269 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:39:10,388 INFO [career_match] App booted. version=v0.4.0-quality pid=7048
+2026-06-04 11:43:43,619 INFO [career_match] Database engine active: sqlite (applications.db)
+2026-06-04 11:43:43,635 INFO [career_match] Database engine active: sqlite (applications.db)
+2026-06-04 11:43:43,833 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:43,959 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:43,990 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:44,108 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:44,230 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:44,370 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:44,487 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:44,610 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:44,616 INFO [career_match] Starting analysis workflow.
+2026-06-04 11:43:44,716 INFO [career_match] Analysis workflow completed successfully.
+2026-06-04 11:43:44,997 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:45,539 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:45,594 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:45,609 INFO [career_match] Stripe webhook applied one-time assessment credit. user_email=career-match-801f1d13@example.com session_id=test_credit_session
+2026-06-04 11:43:45,803 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:46,143 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:46,149 INFO [career_match] Starting analysis workflow.
+2026-06-04 11:43:46,242 INFO [career_match] Analysis workflow completed successfully.
+2026-06-04 11:43:46,406 INFO [career_match] Stripe webhook activated Pro subscription. user_email=career-match-801f1d13@example.com customer_id=cus_test_123 subscription_id=sub_test_123 period_end=2026-07-04T12:00:00
+2026-06-04 11:43:46,521 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:46,797 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:46,803 INFO [career_match] Starting analysis workflow.
+2026-06-04 11:43:46,890 INFO [career_match] Analysis workflow completed successfully.
+2026-06-04 11:43:47,225 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:47,347 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:47,467 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:47,587 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:47,618 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:47,742 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:48,018 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:48,056 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:43:48,203 INFO [career_match] App booted. version=v0.4.0-quality pid=9075
+2026-06-04 11:44:04,556 INFO [career_match] App booted. version=v0.4.0-quality pid=9586
+2026-06-04 11:44:22,917 INFO [career_match] App booted. version=v0.4.0-quality pid=9629
+2026-06-04 11:46:41,962 INFO [career_match] App booted. version=v0.4.0-quality pid=10602
+2026-06-04 11:46:41,963 INFO [career_match] Startup auth state. current_user_email=mrmoeve@gmail.com is_admin=True allowlisted=True authorized=True view=admin
+2026-06-04 11:46:41,965 INFO [career_match] Admin authorization check. current_user_email=mrmoeve@gmail.com is_admin=True allowlisted=True authorized=True
+2026-06-04 11:48:40,195 INFO [career_match] Database engine active: sqlite (applications.db)
+2026-06-04 11:48:40,304 INFO [career_match] App booted. version=v0.4.0-quality pid=11693
+2026-06-04 11:48:40,305 INFO [career_match] Startup auth state. current_user_email=mrmoeve@gmail.com is_admin=True allowlisted=True authorized=True view=admin
+2026-06-04 11:48:40,307 INFO [career_match] Admin authorization check. current_user_email=mrmoeve@gmail.com is_admin=True allowlisted=True authorized=True
+2026-06-04 11:48:55,624 INFO [career_match] Database engine active: sqlite (applications.db)
+2026-06-04 11:48:55,721 INFO [career_match] App booted. version=v0.4.0-quality pid=11886
+2026-06-04 11:48:55,723 INFO [career_match] Startup auth state. current_user_email=mrmoeve@gmail.com is_admin=True allowlisted=True authorized=True view=admin
+2026-06-04 11:48:55,725 INFO [career_match] Admin authorization check. current_user_email=mrmoeve@gmail.com is_admin=True allowlisted=True authorized=True
+2026-06-04 11:56:46,815 INFO [career_match] Database engine active: sqlite (applications.db)
+2026-06-04 11:56:46,920 INFO [career_match] App booted. version=v0.4.0-quality pid=13880
+2026-06-04 11:56:46,922 INFO [career_match] Host validation diagnostics. request_host=unknown allowed_hosts=localhost,127.0.0.1,career-match-w54c.onrender.com,*.onrender.com result=unknown
+2026-06-04 11:56:46,923 INFO [career_match] Startup auth state. current_user_email=mrmoeve@gmail.com is_admin=True allowlisted=True authorized=True view=admin
+2026-06-04 11:56:46,926 INFO [career_match] Admin authorization check. current_user_email=mrmoeve@gmail.com is_admin=True allowlisted=True authorized=True

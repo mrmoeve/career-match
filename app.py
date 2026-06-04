@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import secrets
 import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -10,6 +11,7 @@ from database.db import (
     ApplicationRecord,
     AnalysisFeedback,
     ContactSubmission,
+    PageViewRecord,
     admin_metrics,
     authenticate_user,
     consume_password_reset_token,
@@ -37,7 +39,10 @@ from database.db import (
     save_application,
     save_analysis_feedback,
     save_contact_submission,
+    save_page_view,
     save_resume_stub,
+    set_user_admin,
+    update_contact_message_status,
     update_user_profile,
 )
 from prompts.templates import APP_DISCLAIMER
@@ -70,8 +75,9 @@ APP_NAME = "Career Match"
 BUILD_TIMESTAMP = datetime.fromtimestamp(Path(__file__).stat().st_mtime).isoformat(sep=" ", timespec="seconds")
 SEO_VIEWS = {"ats-checker", "resume-builder", "interview-prep", "cover-letter-generator", "linkedin-message-generator"}
 VALID_VIEWS = {"home", "auth", "app", "contact", "privacy", "terms", "pro", "admin", *SEO_VIEWS}
-APP_PAGES = ["Dashboard", "Workflow", "Analysis History", "My Resumes", "Pro", "Subscription", "Contact", "Privacy Policy", "Terms", "User Profile"]
+BASE_APP_PAGES = ["Dashboard", "Workflow", "Analysis History", "My Resumes", "Pro", "Subscription", "Contact", "Privacy Policy", "Terms", "User Profile"]
 ADMIN_VIEW = "admin"
+DEFAULT_ADMIN_EMAILS = {"mrmoeve@gmail.com"}
 
 
 st.set_page_config(
@@ -136,6 +142,25 @@ def _detect_local_app_status() -> dict:
         detail = "Use the URL printed in the terminal for this running instance."
 
     return {"url": url, "warning": warning, "detail": detail}
+
+
+def _log_request_host_diagnostics() -> None:
+    headers = {}
+    try:
+        context = getattr(st, "context", None)
+        headers = dict(getattr(context, "headers", {}) or {})
+    except Exception:
+        headers = {}
+
+    request_host = headers.get("X-Request-Host") or headers.get("X-Forwarded-Host") or headers.get("Host") or "unknown"
+    allowed_hosts = headers.get("X-Allowed-Hosts", "localhost,127.0.0.1,career-match-w54c.onrender.com,*.onrender.com")
+    validation_result = headers.get("X-Host-Validation-Result", "unknown")
+    logger.info(
+        "Host validation diagnostics. request_host=%s allowed_hosts=%s result=%s",
+        request_host,
+        allowed_hosts,
+        validation_result,
+    )
 
 
 def render_diagnostics_footer(app_status: dict) -> None:
@@ -287,10 +312,212 @@ def inject_theme_overrides() -> None:
             box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
             margin-bottom: 1rem;
         }
+        .summary-hero {
+            background: linear-gradient(135deg, #eff6ff 0%, #ffffff 55%, #f0f9ff 100%);
+            border: 1px solid #bfdbfe;
+            border-radius: 24px;
+            padding: 1.2rem;
+            box-shadow: 0 18px 38px rgba(15, 23, 42, 0.08);
+            margin-bottom: 1rem;
+        }
+        .summary-eyebrow {
+            color: #2563eb;
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .summary-score {
+            font-size: 2.4rem;
+            line-height: 1;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0.35rem 0 0.25rem 0;
+        }
+        .summary-copy {
+            color: #334155;
+            margin: 0.15rem 0 0 0;
+            line-height: 1.55;
+        }
+        .signal-chip {
+            display: inline-block;
+            padding: 0.36rem 0.72rem;
+            border-radius: 999px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            margin: 0.2rem 0.4rem 0.2rem 0;
+        }
+        .signal-good {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #86efac;
+        }
+        .signal-warn {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fcd34d;
+        }
+        .signal-bad {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+        .mini-card {
+            background: #ffffff;
+            border: 1px solid #dbeafe;
+            border-radius: 18px;
+            padding: 0.95rem 1rem;
+            box-shadow: 0 10px 26px rgba(15, 23, 42, 0.05);
+            height: 100%;
+        }
+        .mini-card h4 {
+            margin: 0 0 0.55rem 0;
+            color: #0f172a;
+            font-size: 1rem;
+        }
+        .mini-card ul {
+            margin: 0;
+            padding-left: 1.15rem;
+            color: #334155;
+        }
+        .mini-card li {
+            margin-bottom: 0.38rem;
+        }
+        .summary-label {
+            color: #475569;
+            font-size: 0.88rem;
+            font-weight: 600;
+            margin-bottom: 0.2rem;
+        }
+        .summary-value {
+            color: #0f172a;
+            font-size: 1.2rem;
+            font-weight: 800;
+            margin-bottom: 0.45rem;
+        }
         </style>
         """,
         unsafe_allow_html=True,
     )
+
+
+def _recommendation_signal(recommendation: str) -> str:
+    value = (recommendation or "").strip().lower()
+    if "apply immediately" in value:
+        return "good"
+    if "stretch" in value:
+        return "warn"
+    if "low probability" in value or "not recommended" in value:
+        return "bad"
+    return "warn"
+
+
+def _score_signal(score: int) -> str:
+    if score >= 75:
+        return "good"
+    if score >= 50:
+        return "warn"
+    return "bad"
+
+
+def _signal_chip(label: str, tone: str) -> str:
+    tone_class = {"good": "signal-good", "warn": "signal-warn", "bad": "signal-bad"}.get(tone, "signal-warn")
+    return f'<span class="signal-chip {tone_class}">{label}</span>'
+
+
+def _top_gaps(analysis: dict) -> list[str]:
+    job_fit = analysis.get("job_fit", {}) or {}
+    role_gap = analysis.get("role_gap_analysis", {}) or {}
+    candidates = (
+        job_fit.get("missing_required_skills", [])
+        + role_gap.get("missing_competencies", [])
+        + analysis.get("missing_keywords", [])
+        + analysis.get("gaps", [])
+    )
+    seen: set[str] = set()
+    results: list[str] = []
+    for item in candidates:
+        text = str(item).strip()
+        if not text:
+            continue
+        key = text.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        results.append(text)
+        if len(results) == 3:
+            break
+    return results or ["No material gaps were identified from the current resume and job description."]
+
+
+def _top_strengths(analysis: dict) -> list[str]:
+    candidates = analysis.get("role_specific_strengths", []) + analysis.get("hiring_manager_view", [])
+    seen: set[str] = set()
+    results: list[str] = []
+    for item in candidates:
+        text = str(item).strip()
+        if not text:
+            continue
+        key = text.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        results.append(text)
+        if len(results) == 3:
+            break
+    return results or ["The resume shows credible transferable strengths that can be positioned more clearly for this role."]
+
+
+def _recommended_next_actions(analysis: dict) -> list[str]:
+    job_fit = analysis.get("job_fit", {}) or {}
+    role_gap = analysis.get("role_gap_analysis", {}) or {}
+    missing_required = job_fit.get("missing_required_skills", [])[:2]
+    reposition = role_gap.get("resume_repositioning", [])[:1]
+    actions: list[str] = []
+    if missing_required:
+        actions.append(f"Address the most visible gap first: {', '.join(missing_required)}.")
+    if reposition:
+        actions.append(reposition[0])
+    if analysis.get("match_reasoning"):
+        actions.append("Lead interviews with the strongest evidence-backed examples from your resume.")
+    if analysis.get("overall_interview_potential", 0) >= 60:
+        actions.append("Apply if the role is attractive, but position your transferable experience early.")
+    return actions[:3] or ["Use the Resume Builder to sharpen role language before applying."]
+
+
+def _ats_improvement_opportunities(analysis: dict) -> list[str]:
+    missing = analysis.get("missing_keywords", [])[:3]
+    role_gap = analysis.get("role_gap_analysis", {}) or {}
+    suggestions = []
+    for item in missing:
+        suggestions.append(f"Add resume-backed language for {item} where your experience already supports it.")
+    for item in role_gap.get("resume_repositioning", []):
+        if item not in suggestions:
+            suggestions.append(item)
+        if len(suggestions) >= 3:
+            break
+    return suggestions[:3] or ["The biggest ATS gains will come from clearer role-specific wording, not more keywords."]
+
+
+def _recruiter_likelihood_label(analysis: dict) -> tuple[str, int]:
+    direct_score = int(analysis.get("direct_match_score", 0) or 0)
+    transferable_score = int(analysis.get("transferable_match_score", 0) or 0)
+    interview_score = int(analysis.get("overall_interview_potential", 0) or 0)
+    estimated = round(direct_score * 0.25 + transferable_score * 0.35 + interview_score * 0.40)
+    if estimated >= 75:
+        label = "High"
+    elif estimated >= 55:
+        label = "Moderate"
+    else:
+        label = "Low"
+    return label, estimated
+
+
+def _render_bullet_html(items: list[str]) -> str:
+    if not items:
+        items = ["None identified."]
+    bullet_items = "".join(f"<li>{item}</li>" for item in items[:3])
+    return f"<ul>{bullet_items}</ul>"
 
 
 def _normalize_view(value: str) -> str:
@@ -341,11 +568,49 @@ def _subscription_is_active() -> bool:
 
 def _admin_emails() -> set[str]:
     raw = os.getenv("ADMIN_EMAILS", "")
-    return {item.strip().lower() for item in raw.split(",") if item.strip()}
+    emails = {item.strip().lower() for item in raw.split(",") if item.strip()}
+    return emails | DEFAULT_ADMIN_EMAILS
 
 
 def _user_is_admin() -> bool:
-    return st.session_state.get("user_email", "").strip().lower() in _admin_emails()
+    email = st.session_state.get("user_email", "").strip().lower()
+    if not email:
+        return False
+    if email in _admin_emails():
+        return True
+    profile = get_user_profile(email) or {}
+    return bool(profile.get("is_admin", 0))
+
+
+def _admin_auth_details() -> dict:
+    email = st.session_state.get("user_email", "").strip().lower()
+    profile = get_user_profile(email) or {} if email else {}
+    flag_value = bool(profile.get("is_admin", 0))
+    allowlisted = email in _admin_emails() if email else False
+    authorized = bool(email) and (allowlisted or flag_value)
+    return {
+        "email": email,
+        "is_admin_flag": flag_value,
+        "allowlisted": allowlisted,
+        "authorized": authorized,
+    }
+
+
+def _app_pages() -> list[str]:
+    pages = list(BASE_APP_PAGES)
+    if _user_is_admin() and "Admin" not in pages:
+        pages.append("Admin")
+    return pages
+
+
+def _bootstrap_admin_access() -> None:
+    for email in _admin_emails():
+        if not email:
+            continue
+        profile = get_user_profile(email)
+        if profile and not profile.get("is_admin", 0):
+            logger.info("Promoting bootstrap admin user. email=%s", email)
+            set_user_admin(email, True)
 
 
 def _email_delivery_configured() -> bool:
@@ -785,9 +1050,13 @@ def init_state() -> None:
         "credit_checkout_url": "",
         "billing_portal_url": "",
         "last_checkout_exception": "",
+        "session_id": "",
+        "page_view_tracker": {},
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
+    if not st.session_state.get("session_id"):
+        st.session_state["session_id"] = secrets.token_urlsafe(12)
 
 
 def _application_payload() -> dict:
@@ -837,6 +1106,43 @@ def _extract_resume_candidate_name(resume_text: str) -> str:
             continue
         return stripped
     return "Candidate"
+
+
+def _track_page_view(view_name: str, app_page: str = "") -> None:
+    now = datetime.now()
+    tracker = st.session_state.get("page_view_tracker", {})
+    tracker_key = f"{view_name}|{app_page or '-'}"
+    last_seen = tracker.get(tracker_key)
+    if isinstance(last_seen, str):
+        try:
+            last_seen = datetime.fromisoformat(last_seen)
+        except ValueError:
+            last_seen = None
+    if last_seen and (now - last_seen).total_seconds() < 120:
+        return
+
+    user_email = st.session_state.get("user_email", "")
+    save_page_view(
+        PageViewRecord(
+            created_at=now.isoformat(timespec="seconds"),
+            user_id=get_user_id(user_email) if user_email else 0,
+            user_email=user_email,
+            session_id=st.session_state.get("session_id", ""),
+            view_name=view_name,
+            app_page=app_page,
+        )
+    )
+    tracker[tracker_key] = now.isoformat(timespec="seconds")
+    st.session_state["page_view_tracker"] = tracker
+
+
+def _contact_message_bucket(message_type: str) -> str:
+    value = (message_type or "").strip().lower()
+    if any(term in value for term in ["sales", "partnership", "billing"]):
+        return "Sales"
+    if any(term in value for term in ["feature", "feedback"]):
+        return "Feedback"
+    return "Support"
 
 
 def _optimized_resume_filename(resume_text: str, extension: str) -> str:
@@ -1093,71 +1399,160 @@ def render_match_tab() -> None:
         return
 
     job_fit = analysis.get("job_fit", {})
+    fit_score = int(analysis.get("overall_fit_score", 0) or 0)
+    direct_score = int(analysis.get("direct_match_score", 0) or 0)
+    transferable_score = int(analysis.get("transferable_match_score", 0) or 0)
+    interview_score = int(analysis.get("overall_interview_potential", 0) or 0)
+    recruiter_label, recruiter_score = _recruiter_likelihood_label(analysis)
+    recommendation = job_fit.get("recommendation", "Not available")
+    why_items = (job_fit.get("reasoning", []) or analysis.get("hiring_manager_view", []))[:3]
+    top_strengths = _top_strengths(analysis)
+    top_gaps = _top_gaps(analysis)
+    next_actions = _recommended_next_actions(analysis)
+    ats_opportunities = _ats_improvement_opportunities(analysis)
 
-    col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("Overall Fit Score", f"{analysis['overall_fit_score']}/100")
-    col2.metric("Experience", f"{analysis.get('years_of_experience', 0)} years")
-    col3.metric("Direct Match Score", f"{analysis.get('direct_match_score', 0)}/100")
-    col4.metric("Transferable Match Score", f"{analysis.get('transferable_match_score', 0)}/100")
-    col5.metric("Interview Potential", f"{analysis.get('overall_interview_potential', 0)}/100")
+    hero_left, hero_right = st.columns([1.35, 1], gap="large")
+    with hero_left:
+        st.markdown(
+            f"""
+            <div class="summary-hero">
+                <div class="summary-eyebrow">Executive Summary</div>
+                <div class="summary-score">{fit_score}/100</div>
+                <div>{_signal_chip(recommendation, _recommendation_signal(recommendation))}</div>
+                <p class="summary-copy"><strong>Why:</strong> {" ".join(why_items) if why_items else "The recommendation is based on direct matches, transferable experience, and the strongest evidence found in the resume."}</p>
+                <p class="summary-copy"><strong>What to do next:</strong> {" ".join(next_actions[:2]) if next_actions else "Use the strongest evidence-backed examples in the Resume Builder before applying."}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with hero_right:
+        st.markdown(
+            f"""
+            <div class="mini-card">
+                <div class="summary-label">Interview Probability</div>
+                <div class="summary-value">{interview_score}/100</div>
+                <div class="summary-label">Recruiter Likelihood</div>
+                <div class="summary-value">{recruiter_label} ({recruiter_score}/100)</div>
+                <div class="summary-label">Overall Recommendation</div>
+                <div class="summary-copy">{recommendation}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    st.write(f"**Likely job title:** {analysis['job_title']}")
-    st.write(f"**Likely company:** {analysis['company_name']}")
-    st.write(f"**Role lens:** {analysis.get('role_family', 'General Professional Role')}")
+    metric1, metric2, metric3, metric4 = st.columns(4)
+    metric1.metric("Fit Score", f"{fit_score}/100")
+    metric2.metric("Direct Match", f"{direct_score}/100")
+    metric3.metric("Transferable Match", f"{transferable_score}/100")
+    metric4.metric("Experience", f"{analysis.get('years_of_experience', 0)} years")
+
+    detail_left, detail_right = st.columns([1.2, 1], gap="large")
+    with detail_left:
+        st.markdown(
+            f"""
+            <div class="mini-card">
+                <h4>Top 3 strengths</h4>
+                {_render_bullet_html(top_strengths)}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with detail_right:
+        st.markdown(
+            f"""
+            <div class="mini-card">
+                <h4>Top 3 gaps</h4>
+                {_render_bullet_html(top_gaps)}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    action_left, action_right = st.columns(2, gap="large")
+    with action_left:
+        st.markdown(
+            f"""
+            <div class="mini-card">
+                <h4>Recommended next actions</h4>
+                {_render_bullet_html(next_actions)}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with action_right:
+        st.markdown(
+            f"""
+            <div class="mini-card">
+                <h4>ATS improvement opportunities</h4>
+                {_render_bullet_html(ats_opportunities)}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.caption(
+        f"{analysis['job_title']} at {analysis['company_name']} | "
+        f"{analysis.get('role_family', 'General Professional Role')}"
+        + (f" | {st.session_state['job_location_preview']}" if st.session_state.get("job_location_preview") else "")
+    )
     if st.session_state.get("job_url"):
         st.write(f"**Job posting URL:** {st.session_state['job_url']}")
-    if st.session_state.get("job_location_preview"):
-        st.write(f"**Location:** {st.session_state['job_location_preview']}")
     if st.session_state.get("job_date_posted_preview"):
         st.write(f"**Date posted:** {st.session_state['job_date_posted_preview']}")
     if st.session_state.get("job_category_preview"):
         st.write(f"**Category:** {st.session_state['job_category_preview']}")
-    st.write(f"**Recommendation:** {job_fit.get('recommendation', 'Not available')}")
-    if job_fit:
-        st.write("**Job fit reasoning**")
-        for item in job_fit.get("reasoning", []):
-            st.write(f"- {item}")
 
-        fit_left, fit_right = st.columns(2)
-        with fit_left:
-            st.write("**Experience and title**")
-            years_required = job_fit.get("years_experience_required", 0)
-            years_resume = job_fit.get("years_experience_resume", 0)
-            if years_required:
-                st.write(f"- Years of experience: resume ~{years_resume}, job asks for ~{years_required}")
-            else:
-                st.write(f"- Years of experience: resume ~{years_resume}, job requirement not clearly stated")
-            st.write(
-                "- Title match: "
-                + (", ".join(job_fit.get("title_overlap", [])) if job_fit.get("title_overlap") else "limited overlap")
-            )
-            st.write(
-                "- Industry match: "
-                + (", ".join(job_fit.get("industry_overlap", [])) if job_fit.get("industry_overlap") else "limited overlap")
-            )
-        with fit_right:
-            st.write("**Skills and certifications**")
-            st.write(
-                "- Required skills matched: "
-                f"{len(job_fit.get('required_skill_matches', []))}/{len(job_fit.get('required_skills', []))}"
-            )
-            if job_fit.get("preferred_skills"):
+    with st.expander("See detailed fit reasoning", expanded=False):
+        st.write(f"**Likely job title:** {analysis['job_title']}")
+        st.write(f"**Likely company:** {analysis['company_name']}")
+        st.write(f"**Role lens:** {analysis.get('role_family', 'General Professional Role')}")
+        st.write(f"**Recommendation:** {recommendation}")
+    if job_fit:
+        with st.expander("Experience, title, and skills breakdown", expanded=False):
+            st.write("**Job fit reasoning**")
+            for item in job_fit.get("reasoning", []):
+                st.write(f"- {item}")
+
+            fit_left, fit_right = st.columns(2)
+            with fit_left:
+                st.write("**Experience and title**")
+                years_required = job_fit.get("years_experience_required", 0)
+                years_resume = job_fit.get("years_experience_resume", 0)
+                if years_required:
+                    st.write(f"- Years of experience: resume ~{years_resume}, job asks for ~{years_required}")
+                else:
+                    st.write(f"- Years of experience: resume ~{years_resume}, job requirement not clearly stated")
                 st.write(
-                    "- Preferred skills matched: "
-                    f"{len(job_fit.get('preferred_skill_matches', []))}/{len(job_fit.get('preferred_skills', []))}"
+                    "- Title match: "
+                    + (", ".join(job_fit.get("title_overlap", [])) if job_fit.get("title_overlap") else "limited overlap")
                 )
-            certs = job_fit.get("required_certifications", [])
-            if certs:
                 st.write(
-                    "- Certifications: "
-                    + (
-                        f"matched {', '.join(job_fit.get('matching_certifications', []))}"
-                        if job_fit.get("matching_certifications")
-                        else f"missing {', '.join(job_fit.get('missing_certifications', []))}"
+                    "- Industry match: "
+                    + (", ".join(job_fit.get("industry_overlap", [])) if job_fit.get("industry_overlap") else "limited overlap")
+                )
+            with fit_right:
+                st.write("**Skills and certifications**")
+                st.write(
+                    "- Required skills matched: "
+                    f"{len(job_fit.get('required_skill_matches', []))}/{len(job_fit.get('required_skills', []))}"
+                )
+                if job_fit.get("preferred_skills"):
+                    st.write(
+                        "- Preferred skills matched: "
+                        f"{len(job_fit.get('preferred_skill_matches', []))}/{len(job_fit.get('preferred_skills', []))}"
                     )
-                )
-            else:
-                st.write("- Certifications: none clearly required in the job description")
+                certs = job_fit.get("required_certifications", [])
+                if certs:
+                    st.write(
+                        "- Certifications: "
+                        + (
+                            f"matched {', '.join(job_fit.get('matching_certifications', []))}"
+                            if job_fit.get("matching_certifications")
+                            else f"missing {', '.join(job_fit.get('missing_certifications', []))}"
+                        )
+                    )
+                else:
+                    st.write("- Certifications: none clearly required in the job description")
 
     left, right = st.columns(2)
     with left:
@@ -1710,6 +2105,7 @@ def render_auth_page() -> None:
                     email=email,
                     password=password,
                     full_name=full_name,
+                    is_admin=(email or "").strip().lower() in _admin_emails(),
                 )
                 if success:
                     _log_in_user(result)
@@ -1827,6 +2223,7 @@ def render_app_header() -> None:
 
 
 def render_public_page(view_name: str) -> None:
+    _track_page_view(view_name, "")
     if view_name == "contact":
         render_contact_page()
     elif view_name == "privacy":
@@ -2339,31 +2736,133 @@ def render_feedback_section() -> None:
 
 def render_admin_page() -> None:
     st.subheader("Admin")
-    if not _user_is_admin():
+    admin_details = _admin_auth_details()
+    st.write(f"**Admin User:** {'true' if admin_details['authorized'] else 'false'}")
+    logger.info(
+        "Admin authorization check. current_user_email=%s is_admin=%s allowlisted=%s authorized=%s",
+        admin_details["email"] or "anonymous",
+        admin_details["is_admin_flag"],
+        admin_details["allowlisted"],
+        admin_details["authorized"],
+    )
+    if not admin_details["authorized"]:
         st.error("You do not have access to this page.")
         return
     metrics = admin_metrics()
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Users", metrics.get("total_users", 0))
-    col2.metric("Free Users", metrics.get("free_users", 0))
-    col3.metric("Pro Users", metrics.get("pro_users", 0))
-    col4.metric("Total Analyses", metrics.get("total_analyses", 0))
-    col5, col6, col7 = st.columns(3)
-    col5.metric("Contact Messages", metrics.get("total_contact_messages", 0))
-    col6.metric("Feedback Items", metrics.get("total_feedback_items", 0))
-    col7.metric("Average Fit Score", metrics.get("average_fit_score", 0))
+    overview_tab, messages_tab = st.tabs(["Overview", "Messages"])
 
-    st.write("**Most common missing skills**")
-    for skill, count in metrics.get("most_common_missing_skills", []):
-        st.write(f"- {skill}: {count}")
+    with overview_tab:
+        col1, col2, col3, col4, col5, col6 = st.columns(6)
+        col1.metric("Total Users", metrics.get("total_users", 0))
+        col2.metric("Active Users (30d)", metrics.get("active_users", 0))
+        col3.metric("Free Users", metrics.get("free_users", 0))
+        col4.metric("Paid Users", metrics.get("paid_users", 0))
+        col5.metric("Conversion Rate", f"{metrics.get('conversion_rate', 0)}%")
+        col6.metric("Assessments Completed", metrics.get("completed_assessments", 0))
 
-    st.write("**Recent contact messages**")
-    for item in metrics.get("recent_contact_messages", []):
-        st.write(f"- {item.get('created_at', '')} | {item.get('email', '')} | {item.get('message_type', '')}")
+        stat1, stat2, stat3, stat4, stat5, stat6 = st.columns(6)
+        stat1.metric("Registrations", metrics.get("registrations", 0))
+        stat2.metric("Paid Assessments", metrics.get("paid_assessments", 0))
+        stat3.metric("Pro Subscriptions", metrics.get("pro_users", 0))
+        stat4.metric("Page Views", metrics.get("page_views", 0))
+        stat5.metric("Average Fit Score", metrics.get("average_fit_score", 0))
+        stat6.metric("Unread Messages", metrics.get("open_contact_messages", 0))
 
-    st.write("**Recent feedback**")
-    for item in metrics.get("recent_feedback", []):
-        st.write(f"- {item.get('created_at', '')} | {item.get('rating', '')} | Analysis {item.get('application_id', 0)}")
+        aux1, aux2 = st.columns(2)
+        with aux1:
+            st.write("**Business snapshot**")
+            st.write(f"- Total users: {metrics.get('total_users', 0)}")
+            st.write(f"- Active users in the last 30 days: {metrics.get('active_users', 0)}")
+            st.write(f"- Paid users: {metrics.get('paid_users', 0)}")
+            st.write(f"- Completed assessments: {metrics.get('completed_assessments', 0)}")
+        with aux2:
+            st.write("**Support snapshot**")
+            st.write(f"- Contact messages: {metrics.get('total_contact_messages', 0)}")
+            st.write(f"- Unread / open messages: {metrics.get('open_contact_messages', 0)}")
+            st.write(f"- Feedback items: {metrics.get('total_feedback_items', 0)}")
+            st.write(f"- Pro subscriptions: {metrics.get('pro_users', 0)}")
+
+        st.write("**Most common missing skills**")
+        for skill, count in metrics.get("most_common_missing_skills", []):
+            st.write(f"- {skill}: {count}")
+
+        st.write("**Recent feedback**")
+        for item in metrics.get("recent_feedback", []):
+            st.write(f"- {item.get('created_at', '')} | {item.get('rating', '')} | Analysis {item.get('application_id', 0)}")
+
+    with messages_tab:
+        st.write("**Contact Messages**")
+        all_messages = list_contact_messages(limit=500)
+        search_term = st.text_input("Search messages", placeholder="Search by name, email, or message text")
+        filter_left, filter_mid, filter_right = st.columns(3)
+        status_filter = filter_left.selectbox("Status", ["All", "Open", "Closed"])
+        type_filter = filter_mid.selectbox("Message Type", ["All", "Support", "Feedback", "Sales"])
+        filter_right.metric("Total Messages", len(all_messages))
+
+        filtered_messages = []
+        for item in all_messages:
+            normalized_status = ((item.get("status", "") or "new").strip().lower())
+            display_status = "Open" if normalized_status in {"new", "open"} else "Closed"
+            bucket = _contact_message_bucket(item.get("message_type", ""))
+            haystack = " ".join(
+                [
+                    str(item.get("name", "")),
+                    str(item.get("email", "")),
+                    str(item.get("message_type", "")),
+                    str(item.get("message", "")),
+                ]
+            ).lower()
+            if search_term and search_term.lower() not in haystack:
+                continue
+            if status_filter != "All" and display_status != status_filter:
+                continue
+            if type_filter != "All" and bucket != type_filter:
+                continue
+            filtered_messages.append(
+                {
+                    **item,
+                    "display_status": display_status,
+                    "bucket": bucket,
+                }
+            )
+
+        summary_rows = [
+            {
+                "Date": item.get("created_at", ""),
+                "Name": item.get("name", ""),
+                "Email": item.get("email", ""),
+                "Message Type": item.get("bucket", ""),
+                "Message": item.get("message", ""),
+                "Status": item.get("display_status", ""),
+            }
+            for item in filtered_messages
+        ]
+        st.dataframe(summary_rows, use_container_width=True, hide_index=True)
+
+        for item in filtered_messages:
+            title = f"{item.get('created_at', '')} | {item.get('name', '') or item.get('email', '')} | {item.get('bucket', '')}"
+            with st.expander(title):
+                st.write(f"**Date:** {item.get('created_at', '')}")
+                st.write(f"**Name:** {item.get('name', '')}")
+                st.write(f"**Email:** {item.get('email', '')}")
+                st.write(f"**Message Type:** {item.get('bucket', '')}")
+                st.write(f"**Original Type:** {item.get('message_type', '')}")
+                st.write(f"**Status:** {item.get('display_status', '')}")
+                st.write("**Message:**")
+                st.write(item.get("message", ""))
+
+                current_status = item.get("display_status", "Open")
+                next_status = "Closed" if current_status == "Open" else "Open"
+                if st.button(f"Mark {next_status}", key=f"message_status_{item.get('message_id', 0)}"):
+                    success, message = update_contact_message_status(
+                        int(item.get("message_id", 0)),
+                        next_status.lower(),
+                    )
+                    if success:
+                        st.success(message)
+                        st.rerun()
+                    else:
+                        st.error(message)
 
 
 def render_application_shell() -> None:
@@ -2409,14 +2908,16 @@ def render_application_shell() -> None:
 
 def render_authenticated_app() -> None:
     render_app_header()
+    pages = _app_pages()
     selected_page = st.radio(
         "Navigation",
-        APP_PAGES,
+        pages,
         horizontal=True,
-        index=APP_PAGES.index(st.session_state.get("app_page", "Workflow")) if st.session_state.get("app_page", "Workflow") in APP_PAGES else 1,
+        index=pages.index(st.session_state.get("app_page", "Workflow")) if st.session_state.get("app_page", "Workflow") in pages else 1,
         label_visibility="collapsed",
     )
     st.session_state["app_page"] = selected_page
+    _track_page_view("app", selected_page)
 
     if selected_page == "Dashboard":
         render_dashboard_page()
@@ -2436,6 +2937,8 @@ def render_authenticated_app() -> None:
         render_terms_page()
     elif selected_page == "User Profile":
         render_profile_page()
+    elif selected_page == "Admin":
+        render_admin_page()
     else:
         render_application_shell()
 
@@ -2443,6 +2946,7 @@ def render_authenticated_app() -> None:
 def main() -> None:
     init_db()
     init_state()
+    _bootstrap_admin_access()
     app_status = _detect_local_app_status()
     inject_pwa_support()
     inject_theme_overrides()
@@ -2451,21 +2955,34 @@ def main() -> None:
         f"pid={os.getpid()} url={app_status.get('url') or 'terminal-reported'}"
     )
     logger.info("App booted. version=%s pid=%s", APP_VERSION, os.getpid())
+    _log_request_host_diagnostics()
 
     try:
         requested_view = _current_view()
-        if requested_view == "app" and not st.session_state.get("is_authenticated"):
-            st.session_state["auth_notice"] = "Create an account or sign in to continue to the app."
+        if requested_view in {"app", "admin"} and not st.session_state.get("is_authenticated"):
+            st.session_state["auth_notice"] = "Create an account or sign in to continue."
             requested_view = "auth"
             _set_view("auth")
         else:
             st.session_state["current_view"] = requested_view
 
+        admin_details = _admin_auth_details()
+        logger.info(
+            "Startup auth state. current_user_email=%s is_admin=%s allowlisted=%s authorized=%s view=%s",
+            admin_details["email"] or "anonymous",
+            admin_details["is_admin_flag"],
+            admin_details["allowlisted"],
+            admin_details["authorized"],
+            requested_view,
+        )
+
         if requested_view in {"home", "contact", "privacy", "terms", "pro"}:
             render_public_page(requested_view)
         elif requested_view == "admin":
+            _track_page_view("admin", "Admin")
             render_admin_page()
         elif requested_view == "auth":
+            _track_page_view("auth", "")
             render_auth_page()
         else:
             render_authenticated_app()
