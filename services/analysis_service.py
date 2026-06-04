@@ -243,6 +243,99 @@ def _flatten_categories(categories: dict[str, list[str]]) -> list[str]:
     return _dedupe_keep_order(flattened)
 
 
+def _clean_resume_lines(text: str) -> list[str]:
+    lines: list[str] = []
+    for raw_line in text.splitlines():
+        line = re.sub(r"\s+", " ", raw_line.strip())
+        if line:
+            lines.append(line)
+    return lines
+
+
+def _find_resume_evidence_lines(resume_text: str, terms: list[str], limit: int = 3) -> list[str]:
+    lines = _clean_resume_lines(resume_text)
+    matches: list[str] = []
+    for line in lines:
+        lowered = line.lower()
+        if any(term.lower() in lowered for term in terms if term):
+            matches.append(line)
+        if len(matches) >= limit:
+            break
+    if matches:
+        return matches
+
+    fallback_patterns = [
+        ({"Stakeholder Management", "Stakeholder Communication"}, r"\bstakeholder|\bleadership|\bbusiness leaders?\b|\bboard-ready\b"),
+        ({"Client Communication", "Relationship Management"}, r"\bcommunicat|\bpresent|\bpartner|\bwork(ed)? with\b"),
+        ({"Cross-Functional Collaboration"}, r"\bcross-functional|\bpartnered with\b|\bworked with\b|\bcollaborat"),
+        ({"Issue Resolution", "Application Support"}, r"\bissue|\bresolve|\bsupport|\bincident"),
+        ({"Data Analysis", "Business Analysis"}, r"\banalysis|\bvariance|\bforecast|\bmetrics|\bdashboard"),
+        ({"User Training", "Customer Onboarding", "Training"}, r"\btraining|\bonboarding|\benable"),
+    ]
+    inferred: list[str] = []
+    for term_set, pattern in fallback_patterns:
+        if term_set.intersection(set(terms)):
+            for line in lines:
+                if re.search(pattern, line, re.IGNORECASE):
+                    inferred.append(line)
+                if len(inferred) >= limit:
+                    return inferred
+    return inferred
+
+
+def _build_matching_reasoning(
+    resume_text: str,
+    job_categories: dict[str, list[str]],
+    resume_supported_categories: dict[str, list[str]],
+    competency_scores: list[dict],
+) -> list[dict]:
+    reasoning: list[dict] = []
+    for item in competency_scores:
+        matched_terms = item.get("matched", [])[:4]
+        if not matched_terms:
+            continue
+        evidence_lines = _find_resume_evidence_lines(resume_text, matched_terms, limit=3)
+        reasoning.append(
+            {
+                "competency": item["competency"],
+                "matched_terms": matched_terms,
+                "score": item["score"],
+                "why_it_matched": (
+                    f"The role emphasizes {', '.join(item.get('job_expectations', [])[:3])}, and the resume already shows "
+                    f"{', '.join(matched_terms[:3])}."
+                ),
+                "resume_evidence_lines": evidence_lines,
+            }
+        )
+    return reasoning
+
+
+def _build_missing_reasoning(
+    resume_text: str,
+    job_categories: dict[str, list[str]],
+    resume_supported_categories: dict[str, list[str]],
+    competency_scores: list[dict],
+) -> list[dict]:
+    supported_terms = set(_flatten_categories(resume_supported_categories))
+    missing_items: list[dict] = []
+    for item in competency_scores:
+        missing_terms = [term for term in item.get("job_expectations", []) if term not in supported_terms][:4]
+        if not missing_terms:
+            continue
+        nearby_evidence = _find_resume_evidence_lines(resume_text, item.get("matched", []), limit=2)
+        missing_items.append(
+            {
+                "competency": item["competency"],
+                "missing_terms": missing_terms,
+                "why_it_is_missing": (
+                    f"The job calls for {', '.join(missing_terms[:3])}, but those phrases do not appear clearly in the uploaded resume."
+                ),
+                "closest_resume_evidence": nearby_evidence,
+            }
+        )
+    return missing_items
+
+
 def _extract_years_of_experience(text: str) -> int:
     matches = re.findall(r"(\d+)\s*\+?\s*years?", text.lower())
     numbers = [int(match) for match in matches]
@@ -824,6 +917,18 @@ def compare_resume_to_job(resume_text: str, job_description_text: str) -> dict:
         resume_supported_categories=resume_supported_categories,
         competency_scores=competency_scores,
     )
+    match_reasoning = _build_matching_reasoning(
+        resume_text=resume_text,
+        job_categories=job_categories,
+        resume_supported_categories=resume_supported_categories,
+        competency_scores=competency_scores,
+    )
+    missing_reasoning = _build_missing_reasoning(
+        resume_text=resume_text,
+        job_categories=job_categories,
+        resume_supported_categories=resume_supported_categories,
+        competency_scores=competency_scores,
+    )
     hiring_manager_view = _build_hiring_manager_view(
         resume_text=resume_text,
         resume_years=resume_years,
@@ -856,6 +961,8 @@ def compare_resume_to_job(resume_text: str, job_description_text: str) -> dict:
         "job_keyword_categories": job_categories,
         "ats_breakdown": {"competencies": competency_scores},
         "competency_scores": competency_scores,
+        "match_reasoning": match_reasoning,
+        "missing_reasoning": missing_reasoning,
         "years_of_experience": resume_years,
         "role_gap_analysis": role_gap_analysis,
         "hiring_manager_view": hiring_manager_view,

@@ -8,9 +8,11 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from streamlit.testing.v1 import AppTest
 
+from database.db import DB_PATH, get_dashboard_metrics, set_subscription_status
 from services.analysis_service import compare_resume_to_job
 from services.export_service import build_optimized_resume_docx, build_optimized_resume_pdf
 from services.resume_builder_service import build_optimized_resume_package
+import sqlite3
 
 
 def main() -> None:
@@ -42,6 +44,7 @@ def main() -> None:
 
     print("registered_user", at.session_state["user_email"])
     print("is_authenticated", at.session_state["is_authenticated"])
+    print("nav_pages_present", [item.value for item in at.radio if item.label == "Navigation"])
     print("has_upload_tab", any(tab.label == "Upload" for tab in at.tabs))
 
     at.file_uploader[0].set_value((resume_path.name, resume_path.read_bytes(), "text/plain"))
@@ -62,12 +65,48 @@ def main() -> None:
     print("analysis_title", at.session_state["analysis"]["job_title"])
     print("role_family", at.session_state["analysis"]["role_family"])
     print("trust_score", at.session_state["generated"]["resume_builder"]["trust_score"])
+    print("saved_application", at.session_state["application_saved"])
     print("exception_count", len(at.exception))
+    print("free_usage_after_first", get_dashboard_metrics(email)["free_assessments_used"])
+    print("free_remaining_after_first", get_dashboard_metrics(email)["free_assessments_remaining"])
+
+    next(button for button in at.button if button.label == "Analyze and generate materials").click()
+    at.run(timeout=60)
+    print("second_assessment_routes_to_pro", at.session_state["app_page"] == "Pro")
+
+    set_subscription_status(email, "pro")
+    at.session_state["app_page"] = "Workflow"
+    at.run()
+    next(button for button in at.button if button.label == "Analyze and generate materials").click()
+    at.run(timeout=60)
+    print("pro_user_bypasses_paywall", at.session_state["app_page"] == "Workflow")
+    print("dashboard_jobs_analyzed", get_dashboard_metrics(email)["jobs_analyzed"])
+
+    at.radio[0].set_value("Contact")
+    at.run()
+    contact_fields = {item.label: item for item in at.text_input if item.label in {"Name", "Email"}}
+    contact_fields["Name"].set_value("Jordan Tester")
+    contact_fields["Email"].set_value(email)
+    at.selectbox[0].set_value("Feature Request")
+    at.text_area[-1].set_value("Please keep improving the recruiter-quality analysis.")
+    next(button for button in at.button if button.label == "Submit").click()
+    at.run()
+
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        saved_contact_count = conn.execute(
+            "SELECT COUNT(*) FROM contact_submissions WHERE user_email = ?",
+            (email,),
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    print("contact_saved", saved_contact_count >= 1)
 
     next(button for button in at.button if button.label == "Home").click()
     at.run()
     print("home_button_returns_landing", "Match your resume to any job and understand exactly where you stand." in "".join(str(item.value) for item in at.markdown))
 
+    at.session_state["app_page"] = "Workflow"
     at.session_state["current_view"] = "app"
     at.run()
     print("authenticated_user_can_reenter_app", any(tab.label == "Upload" for tab in at.tabs))

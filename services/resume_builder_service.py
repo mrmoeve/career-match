@@ -293,6 +293,50 @@ def _rewrite_experience_lines(sections: dict[str, list[str]], analysis: dict, ev
     sections["experience"] = rewritten
 
 
+def _build_recruiter_ready_bullets(sections: dict[str, list[str]], evidence_map: dict[str, dict]) -> list[str]:
+    experience_lines = sections.get("experience", [])
+    evidence_terms = [
+        term for term in [
+            "Stakeholder Management",
+            "Client Communication",
+            "Cross-Functional Collaboration",
+            "Issue Resolution",
+            "User Training",
+            "Process Improvement",
+            "Data Analysis",
+            "Dashboard Reporting",
+        ]
+        if term in evidence_map
+    ]
+    bullets: list[str] = []
+    term_index = 0
+    for line in experience_lines:
+        stripped = line.strip()
+        if not stripped.startswith("-"):
+            continue
+        core = stripped.lstrip("-").strip()
+        if not core:
+            continue
+        lead = evidence_terms[term_index] if evidence_terms else ""
+        suffix_map = {
+            "Stakeholder Management": "with strong stakeholder management across functions.",
+            "Client Communication": "while keeping communication clear and outcome-focused.",
+            "Cross-Functional Collaboration": "through close cross-functional collaboration.",
+            "Issue Resolution": "with an emphasis on issue resolution and follow-through.",
+            "User Training": "in ways that supported training, onboarding, or adoption outcomes.",
+            "Process Improvement": "while improving process quality and efficiency.",
+            "Data Analysis": "by translating data into actionable next steps.",
+            "Dashboard Reporting": "through concise reporting and dashboard-style updates.",
+        }
+        recruiter_ready = core
+        if lead and lead.lower() not in core.lower():
+            recruiter_ready = f"{core} This demonstrates {lead.lower()} {suffix_map.get(lead, '')}".strip()
+        bullets.append(f"- {recruiter_ready}")
+        if evidence_terms:
+            term_index = min(term_index + 1, len(evidence_terms) - 1)
+    return bullets[:8]
+
+
 def _replace_or_insert_section(sections: dict[str, list[str]], key: str, new_lines: list[str]) -> None:
     sections[key] = new_lines
 
@@ -417,6 +461,7 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
     if optimized_skills:
         _replace_or_insert_section(sections, "skills", [", ".join(optimized_skills)])
     _rewrite_experience_lines(sections, analysis, evidence_map)
+    recruiter_ready_bullets = _build_recruiter_ready_bullets(sections, evidence_map)
 
     optimized_resume_text = _render_resume(header, sections)
     optimized_analysis = compare_resume_to_job(optimized_resume_text, job_description_text)
@@ -445,6 +490,24 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
         for term, payload in evidence_map.items()
         if payload["evidence_type"] == "inferred"
     ]
+    ats_change_explanation = ""
+    if optimized_ats == original_ats:
+        if unsupported_added:
+            ats_change_explanation = (
+                "ATS stayed flat because unsupported additions were excluded from scoring and the optimizer protected trust over keyword inflation."
+            )
+        elif not keywords_added:
+            ats_change_explanation = (
+                "ATS stayed flat because the original resume already captured most evidence-backed role language, so the rewrite focused on clarity rather than adding unsupported terms."
+            )
+        else:
+            ats_change_explanation = (
+                "ATS stayed flat because the rewrite improved phrasing and recruiter readiness more than raw keyword coverage."
+            )
+    else:
+        ats_change_explanation = (
+            f"ATS improved by {optimized_ats - original_ats} points after adding evidence-backed role language already supported by the resume."
+        )
 
     return {
         "analysis_job_title": analysis.get("job_title", "Optimized Resume"),
@@ -457,11 +520,14 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
         "keywords_added": keywords_added,
         "unsupported_added_keywords": unsupported_added,
         "missing_keywords_remaining": optimized_analysis.get("missing_keywords", []),
+        "ats_change_explanation": ats_change_explanation,
         "improvements_summary": [
             "Rewrote the professional summary using only resume-backed evidence.",
             "Restricted the skills section to explicit resume skills plus evidence-backed inferred capabilities.",
             "Preserved header details, experience history, employers, titles, and dates from the original resume.",
+            "Generated recruiter-ready bullet rewrites grounded in the original experience section.",
         ],
+        "recruiter_ready_bullets": recruiter_ready_bullets,
         "resume_evidence_map": evidence_map,
         "added_keyword_explanations": _build_keyword_explanations(keywords_added, analysis, evidence_map),
         "bridge_the_gap_guidance": _build_bridge_the_gap_guidance(analysis, evidence_map),
