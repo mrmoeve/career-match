@@ -336,6 +336,56 @@ def _build_missing_reasoning(
     return missing_items
 
 
+def _build_recruiter_quality_intelligence(
+    resume_text: str,
+    competency_scores: list[dict],
+    match_reasoning: list[dict],
+    missing_reasoning: list[dict],
+) -> list[dict]:
+    match_by_name = {item["competency"]: item for item in match_reasoning}
+    missing_by_name = {item["competency"]: item for item in missing_reasoning}
+    intelligence: list[dict] = []
+    for item in competency_scores:
+        competency = item["competency"]
+        match_item = match_by_name.get(competency, {})
+        missing_item = missing_by_name.get(competency, {})
+        evidence_lines = match_item.get("resume_evidence_lines", [])
+        lead_evidence = evidence_lines[0] if evidence_lines else ""
+        repositioning = ""
+        if competency == "Customer Success":
+            repositioning = "Frame stakeholder support, issue resolution, and cross-functional coordination as customer-success outcomes."
+        elif competency == "Account Management":
+            repositioning = "Highlight user-facing ownership, relationship continuity, and coordination across teams as account-style support."
+        elif competency == "Stakeholder Management":
+            repositioning = "Move stakeholder-facing bullets higher in the resume and use language that signals ownership and influence."
+        elif competency == "Client Communication":
+            repositioning = "Use clearer client-facing wording around communication, updates, and issue handling."
+        elif competency == "Risk Management":
+            repositioning = "Connect variance analysis, controls, or issue handling to service protection and risk reduction."
+        elif competency == "Training & Adoption":
+            repositioning = "Position training, enablement, or onboarding-like work as adoption support."
+        else:
+            repositioning = "Rephrase supported experience using the job's language while staying grounded in the resume."
+        intelligence.append(
+            {
+                "competency": competency,
+                "direct_match_score": item.get("direct_score", 0),
+                "transferable_match_score": item.get("transferable_score", 0),
+                "exact_resume_evidence": evidence_lines,
+                "why_this_evidence_matters": match_item.get("why_it_matched", ""),
+                "where_resume_falls_short": missing_item.get("why_it_is_missing", ""),
+                "repositioning": repositioning,
+                "interview_talking_point": (
+                    f"In my prior work, I demonstrated {', '.join(item.get('matched', [])[:3]).lower()} "
+                    "through hands-on coordination, communication, and execution in complex environments."
+                    if item.get("matched")
+                    else "I would explain the closest adjacent experience and how it maps into the target role."
+                ),
+            }
+        )
+    return intelligence
+
+
 def _extract_years_of_experience(text: str) -> int:
     matches = re.findall(r"(\d+)\s*\+?\s*years?", text.lower())
     numbers = [int(match) for match in matches]
@@ -929,6 +979,12 @@ def compare_resume_to_job(resume_text: str, job_description_text: str) -> dict:
         resume_supported_categories=resume_supported_categories,
         competency_scores=competency_scores,
     )
+    recruiter_quality_intelligence = _build_recruiter_quality_intelligence(
+        resume_text=resume_text,
+        competency_scores=competency_scores,
+        match_reasoning=match_reasoning,
+        missing_reasoning=missing_reasoning,
+    )
     hiring_manager_view = _build_hiring_manager_view(
         resume_text=resume_text,
         resume_years=resume_years,
@@ -963,6 +1019,7 @@ def compare_resume_to_job(resume_text: str, job_description_text: str) -> dict:
         "competency_scores": competency_scores,
         "match_reasoning": match_reasoning,
         "missing_reasoning": missing_reasoning,
+        "recruiter_quality_intelligence": recruiter_quality_intelligence,
         "years_of_experience": resume_years,
         "role_gap_analysis": role_gap_analysis,
         "hiring_manager_view": hiring_manager_view,

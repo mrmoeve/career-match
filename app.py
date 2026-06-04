@@ -8,23 +8,40 @@ from pathlib import Path
 import streamlit as st
 from database.db import (
     ApplicationRecord,
+    PaymentRecord,
     AnalysisFeedback,
     ContactSubmission,
+    add_assessment_credits,
+    admin_metrics,
     authenticate_user,
     consume_password_reset_token,
+    consume_email_verification_token,
+    consume_assessment_credit,
     create_user,
+    create_email_verification_token,
     create_password_reset_token,
+    delete_application,
+    delete_saved_resume,
     get_dashboard_metrics,
     get_assessment_access,
+    get_saved_resume,
     get_user_id,
     get_user_profile,
     increment_free_assessment_usage,
     init_db,
     list_applications,
+    list_contact_messages,
+    list_feedback,
+    list_saved_resumes,
+    mark_saved_resume_used,
+    rename_saved_resume,
     save_application,
     save_analysis_feedback,
     save_contact_submission,
+    save_payment_record,
     save_resume_stub,
+    set_stripe_customer_details,
+    set_subscription_plan,
     set_subscription_status,
     update_user_profile,
 )
@@ -37,6 +54,12 @@ from services.export_service import (
     build_optimized_resume_pdf,
 )
 from services.job_url_service import JobExtractionError, fetch_job_posting_from_url
+from services.billing_service import (
+    create_credit_checkout_session,
+    create_pro_checkout_session,
+    handle_webhook_event,
+    payments_configured,
+)
 from services.openai_service import generate_career_materials, is_demo_mode_api_key
 from services.resume_builder_service import build_optimized_resume_package
 from services.runtime_service import configure_logging, init_monitoring
@@ -47,8 +70,9 @@ from services.text_extractor import extract_text_from_upload
 APP_VERSION = "v0.4.0-quality"
 APP_NAME = "Career Match"
 BUILD_TIMESTAMP = datetime.fromtimestamp(Path(__file__).stat().st_mtime).isoformat(sep=" ", timespec="seconds")
-VALID_VIEWS = {"home", "auth", "app", "contact", "privacy", "terms", "pro"}
-APP_PAGES = ["Dashboard", "Workflow", "Analysis History", "Pro", "Contact", "Privacy Policy", "Terms", "User Profile"]
+VALID_VIEWS = {"home", "auth", "app", "contact", "privacy", "terms", "pro", "admin"}
+APP_PAGES = ["Dashboard", "Workflow", "Analysis History", "My Resumes", "Pro", "Contact", "Privacy Policy", "Terms", "User Profile"]
+ADMIN_VIEW = "admin"
 
 
 st.set_page_config(
@@ -312,12 +336,66 @@ def _subscription_is_active() -> bool:
     return _assessment_access().get("is_pro", False)
 
 
+def _admin_emails() -> set[str]:
+    raw = os.getenv("ADMIN_EMAILS", "")
+    return {item.strip().lower() for item in raw.split(",") if item.strip()}
+
+
+def _user_is_admin() -> bool:
+    return st.session_state.get("user_email", "").strip().lower() in _admin_emails()
+
+
+def _email_delivery_configured() -> bool:
+    return all(
+        os.getenv(key, "").strip()
+        for key in ["SMTP_HOST", "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD", "FROM_EMAIL"]
+    )
+
+
+def _rate_limit_allows_analysis() -> bool:
+    timestamps = st.session_state.get("analysis_rate_timestamps", [])
+    now = datetime.now()
+    fresh = [item for item in timestamps if (now - item).total_seconds() < 60]
+    st.session_state["analysis_rate_timestamps"] = fresh
+    if len(fresh) >= 5:
+        return False
+    fresh.append(now)
+    st.session_state["analysis_rate_timestamps"] = fresh
+    return True
+
+
+def _record_successful_assessment() -> None:
+    if not st.session_state.get("is_authenticated"):
+        return
+    access = _assessment_access()
+    email = st.session_state.get("user_email", "")
+    if access.get("is_pro"):
+        return
+    if access.get("credits", 0) > 0:
+        consume_assessment_credit(email)
+        return
+    increment_free_assessment_usage(email)
+
+
 def _send_to_pro_page() -> None:
     if st.session_state.get("is_authenticated"):
         st.session_state["app_page"] = "Pro"
         _set_view("app")
     else:
         _set_view("pro")
+
+
+def _can_run_analysis() -> tuple[bool, str]:
+    if not st.session_state.get("is_authenticated"):
+        return False, "Sign in to start an analysis."
+    access = _assessment_access()
+    if access.get("is_pro"):
+        return True, ""
+    if access.get("credits", 0) > 0:
+        return True, ""
+    if access.get("remaining", 0) > 0:
+        return True, ""
+    return False, "paywall"
 
 
 def render_landing_page() -> None:
@@ -473,8 +551,37 @@ def render_landing_page() -> None:
         unsafe_allow_html=True,
     )
 
+    st.markdown("## Pricing")
+    pricing_cols = st.columns(3)
+    pricing_cards = [
+        ("Free", "$0", ["1 assessment"]),
+        ("One-Time", "$4.99", ["1 additional assessment"]),
+        ("Pro", "$19/month", ["Unlimited assessments"]),
+    ]
+    for column, (title, price, bullets) in zip(pricing_cols, pricing_cards):
+        with column:
+            st.markdown(
+                f"<div class='section-card'><h3>{title}</h3><p><strong>{price}</strong></p><p>{'<br/>'.join(bullets)}</p></div>",
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("## FAQ")
+    faq_items = {
+        "How does Career Match work?": "Upload your resume, add a job posting, and Career Match compares the two before generating tailored materials.",
+        "Does Career Match rewrite my resume?": "Yes, but only using evidence already present in your uploaded resume.",
+        "Do I get one free assessment?": "Yes. Each registered user starts with one free completed assessment.",
+        "What happens after my free assessment?": "You can buy one more assessment or upgrade to Pro for unlimited assessments.",
+        "Can I buy only one more assessment?": "Yes. Career Match supports a $4.99 one-time additional assessment.",
+        "What does Pro include?": "Pro includes unlimited assessments, unlimited exports, saved resumes, full history, and premium workflow support.",
+        "Is my resume stored?": "Career Match may store resume text, history, feedback, and generated outputs to support your account workflow.",
+        "Can I delete my data?": "You can submit a deletion request through the Contact page.",
+    }
+    for question, answer in faq_items.items():
+        with st.expander(question):
+            st.write(answer)
+
     st.markdown("## Start")
-    cta_col = st.columns([1, 1, 1])[1]
+    cta_col, pricing_cta_col = st.columns(2)
     with cta_col:
         if st.button("Start Free Analysis", type="primary", use_container_width=True):
             if st.session_state.get("is_authenticated"):
@@ -482,6 +589,10 @@ def render_landing_page() -> None:
             else:
                 st.session_state["auth_mode"] = "register"
                 _set_view("auth")
+            st.rerun()
+    with pricing_cta_col:
+        if st.button("View Pricing", use_container_width=True):
+            _set_view("pro")
             st.rerun()
 
     st.markdown("## Privacy Policy")
@@ -541,6 +652,7 @@ def init_state() -> None:
         "last_application_id": 0,
         "feedback_submitted_for_analysis": False,
         "last_saved_resume_signature": "",
+        "analysis_rate_timestamps": [],
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
@@ -612,6 +724,27 @@ def render_upload_tab() -> None:
 
     left, right = st.columns(2)
     with left:
+        if st.session_state.get("is_authenticated"):
+            saved_resumes = list_saved_resumes(st.session_state.get("user_email", ""))
+            if saved_resumes:
+                resume_options = {f"{item['resume_name']} ({item['original_filename']})": item["resume_id"] for item in saved_resumes}
+                selected_saved_resume = st.selectbox(
+                    "Or select a saved resume",
+                    ["Choose a saved resume"] + list(resume_options.keys()),
+                )
+                if selected_saved_resume != "Choose a saved resume" and st.button("Use Saved Resume", use_container_width=True):
+                    saved_resume = get_saved_resume(
+                        st.session_state.get("user_email", ""),
+                        resume_options[selected_saved_resume],
+                    )
+                    if saved_resume:
+                        st.session_state["resume_text"] = saved_resume.get("extracted_text", "")
+                        st.session_state["resume_filename"] = saved_resume.get("original_filename", "")
+                        mark_saved_resume_used(
+                            st.session_state.get("user_email", ""),
+                            saved_resume.get("resume_id", 0),
+                        )
+                        st.success(f"Loaded saved resume: {saved_resume.get('resume_name', 'Resume')}")
         resume_file = st.file_uploader(
             "Upload resume",
             type=["pdf", "docx", "txt"],
@@ -763,16 +896,20 @@ def render_upload_tab() -> None:
 
     can_run = bool(st.session_state["resume_text"].strip() and st.session_state["job_text"].strip())
     access = _assessment_access()
-    if st.session_state.get("is_authenticated") and not access.get("can_run_analysis", False):
+    analysis_allowed, block_reason = _can_run_analysis()
+    if st.session_state.get("is_authenticated") and block_reason == "paywall":
         st.warning("You’ve used your free Career Match assessment.")
-        st.caption("Upgrade to Career Match Pro to continue generating new analyses. Your existing results remain available.")
-        if st.button("Upgrade to Career Match Pro", type="primary", use_container_width=True):
+        st.caption("Upgrade to Career Match Pro or buy one more assessment to continue. Your previous results remain available.")
+        if st.button("View Upgrade Options", type="primary", use_container_width=True):
             _send_to_pro_page()
             st.rerun()
     if st.button("Analyze and generate materials", type="primary", disabled=not can_run):
-        if st.session_state.get("is_authenticated") and not access.get("can_run_analysis", False):
+        if not analysis_allowed:
             _send_to_pro_page()
             st.rerun()
+        if not _rate_limit_allows_analysis():
+            st.error("Please wait a moment before starting another analysis.")
+            return
         try:
             logger.info("Starting analysis workflow.")
             with st.spinner("Comparing resume to the job description..."):
@@ -803,8 +940,7 @@ def render_upload_tab() -> None:
                 st.session_state["application_saved"] = False
 
             _save_current_application()
-            if st.session_state.get("is_authenticated"):
-                increment_free_assessment_usage(st.session_state.get("user_email", ""))
+            _record_successful_assessment()
             logger.info("Analysis workflow completed successfully.")
             st.success("Analysis and tailored outputs are ready in the other tabs.")
         except Exception as exc:
@@ -954,6 +1090,19 @@ def render_match_tab() -> None:
                     for line in closest:
                         st.write(f"- {line}")
 
+    st.write("**Recruiter-quality intelligence**")
+    for item in analysis.get("recruiter_quality_intelligence", []):
+        with st.expander(item.get("competency", "Competency")):
+            st.write(f"**Direct Match Score:** {item.get('direct_match_score', 0)}/100")
+            st.write(f"**Transferable Match Score:** {item.get('transferable_match_score', 0)}/100")
+            st.write("**Exact Resume Evidence:**")
+            for line in item.get("exact_resume_evidence", []):
+                st.write(f"- {line}")
+            st.write(f"**Why It Helps:** {item.get('why_this_evidence_matters', '')}")
+            st.write(f"**Gap:** {item.get('where_resume_falls_short', '')}")
+            st.write(f"**Repositioning:** {item.get('repositioning', '')}")
+            st.write(f"**Interview Talking Point:** {item.get('interview_talking_point', '')}")
+
     render_feedback_section()
 
 
@@ -1027,6 +1176,14 @@ def render_resume_builder_tab() -> None:
     st.write("**Recruiter-ready bullet rewrites**")
     for bullet in builder.get("recruiter_ready_bullets", []):
         st.write(bullet)
+    st.write("**Original vs improved bullets**")
+    for index, item in enumerate(builder.get("rewritten_bullet_details", []), start=1):
+        with st.expander(f"Bullet {index}"):
+            st.write(f"**Original bullet:** {item.get('original_bullet', '')}")
+            st.write(f"**Improved bullet:** {item.get('improved_bullet', '')}")
+            st.write(f"**Why it improved:** {item.get('why_it_improved', '')}")
+            st.write(f"**Evidence used:** {item.get('evidence_used', '')}")
+            st.write(f"**Recruiter explanation:** {item.get('recruiter_explanation', '')}")
 
     breakdown_left, breakdown_right = st.columns(2)
     with breakdown_left:
@@ -1393,7 +1550,7 @@ def render_auth_page() -> None:
                     st.rerun()
                 st.error(result)
 
-    forgot_tab, reset_tab = st.tabs(["Forgot Password", "Reset Password"])
+    forgot_tab, reset_tab, verify_tab = st.tabs(["Forgot Password", "Reset Password", "Verify Email"])
     with forgot_tab:
         with st.form("forgot_password_form", clear_on_submit=False):
             email = st.text_input("Account Email", key="forgot_email")
@@ -1404,10 +1561,14 @@ def render_auth_page() -> None:
                 expires_at=(datetime.now() + timedelta(minutes=30)).isoformat(timespec="seconds"),
             )
             if success:
-                st.success(
-                    "Reset token created. In production this would be emailed. For now, use this token in the reset form: "
-                    f"`{result}`"
-                )
+                if _email_delivery_configured():
+                    st.success("Reset request received. Check your email for the password reset link.")
+                else:
+                    st.info("Email delivery is not configured yet.")
+                    st.success(
+                        "Reset token created. For local development, use this token in the reset form: "
+                        f"`{result}`"
+                    )
             else:
                 st.error(result)
     with reset_tab:
@@ -1429,6 +1590,35 @@ def render_auth_page() -> None:
                     st.success(result)
                 else:
                     st.error(result)
+    with verify_tab:
+        with st.form("verify_email_request_form", clear_on_submit=False):
+            email = st.text_input("Verification Email", key="verify_email")
+            request_submitted = st.form_submit_button("Request Verification Token", use_container_width=True)
+        if request_submitted:
+            success, result = create_email_verification_token(
+                email=email,
+                expires_at=(datetime.now() + timedelta(hours=2)).isoformat(timespec="seconds"),
+            )
+            if success:
+                if _email_delivery_configured():
+                    st.success("Verification email requested. Check your inbox for the verification link.")
+                else:
+                    st.info("Email delivery is not configured yet.")
+                    st.success(f"Verification token for local development: `{result}`")
+            else:
+                st.error(result)
+        with st.form("verify_email_token_form", clear_on_submit=False):
+            token = st.text_input("Verification Token", key="verify_email_token")
+            verify_submitted = st.form_submit_button("Verify Email", use_container_width=True)
+        if verify_submitted:
+            success, result = consume_email_verification_token(
+                token=token,
+                current_time=datetime.now().isoformat(timespec="seconds"),
+            )
+            if success:
+                st.success(result)
+            else:
+                st.error(result)
     st.markdown("</div>", unsafe_allow_html=True)
 
     helper_left, helper_right = st.columns([1, 1])
@@ -1479,6 +1669,8 @@ def render_public_page(view_name: str) -> None:
         render_terms_page()
     elif view_name == "pro":
         render_pro_page()
+    elif view_name == "admin":
+        render_admin_page()
     else:
         render_landing_page()
 
@@ -1497,6 +1689,16 @@ def render_dashboard_page() -> None:
         f"{metrics.get('free_assessments_used', 0)}/{metrics.get('free_assessments_limit', 1)} used",
     )
     col5.metric("Current Plan", str(metrics.get("current_plan", "free")).title())
+    extra1, extra2 = st.columns(2)
+    extra1.metric("Purchased Credits", metrics.get("assessment_credits", 0))
+    extra2.metric("Free Assessments Remaining", metrics.get("free_assessments_remaining", 0))
+
+    if metrics.get("current_plan", "free").lower() == "pro":
+        st.success("Career Match Pro Active")
+    elif metrics.get("free_assessments_remaining", 0) > 0:
+        st.info(f"You have {metrics.get('free_assessments_remaining', 0)} free assessments remaining.")
+    else:
+        st.warning("You’ve used your free assessment. Upgrade or buy another assessment.")
 
     st.write("**Recent analyses**")
     if not recent:
@@ -1523,6 +1725,14 @@ def render_history_page() -> None:
         st.info("Saved analyses will appear here after you run your first job match.")
         return
 
+    filter_left, filter_right, filter_score, filter_rec = st.columns(4)
+    company_filter = filter_left.text_input("Company Filter")
+    title_filter = filter_right.text_input("Job Title Filter")
+    min_score = filter_score.slider("Minimum Fit Score", 0, 100, 0)
+    recommendation_filter = filter_rec.selectbox("Recommendation", ["All", "Apply Immediately", "Good Stretch Opportunity", "Low Probability Match", "Not Recommended"])
+
+    search_term = st.text_input("Search by company, role, or keyword")
+
     for item in applications:
         payload = {}
         payload_json = item.get("payload_json", "")
@@ -1531,17 +1741,36 @@ def render_history_page() -> None:
                 payload = json.loads(payload_json)
             except json.JSONDecodeError:
                 payload = {}
+        analysis = payload.get("analysis", {})
+        generated = payload.get("generated", {})
+        recommendation = (analysis.get("job_fit", {}) or {}).get("recommendation", "Not available")
+        haystack = " ".join([
+            str(item.get("company_name", "")),
+            str(item.get("job_title", "")),
+            str(item.get("job_location", "")),
+            " ".join(analysis.get("matching_keywords", [])) if analysis else "",
+        ]).lower()
+        if company_filter and company_filter.lower() not in str(item.get("company_name", "")).lower():
+            continue
+        if title_filter and title_filter.lower() not in str(item.get("job_title", "")).lower():
+            continue
+        if int(item.get("ats_score", 0)) < min_score:
+            continue
+        if recommendation_filter != "All" and recommendation != recommendation_filter:
+            continue
+        if search_term and search_term.lower() not in haystack:
+            continue
         with st.expander(f"{item['created_at']} | {item['job_title']} at {item['company_name']}"):
-            analysis = payload.get("analysis", {})
-            generated = payload.get("generated", {})
-            recommendation = (analysis.get("job_fit", {}) or {}).get("recommendation", "Not available")
             st.write(f"**Date:** {item.get('created_at', '')}")
             st.write(f"**Company:** {item.get('company_name', '')}")
             st.write(f"**Job Title:** {item.get('job_title', '')}")
+            st.write(f"**Location:** {item.get('job_location', '')}")
             st.write(f"**Fit Score:** {item.get('ats_score', 0)}/100")
+            st.write(f"**Direct Match Score:** {analysis.get('direct_match_score', 0) if analysis else 0}/100")
+            st.write(f"**Transferable Match Score:** {analysis.get('transferable_match_score', 0) if analysis else 0}/100")
             st.write(f"**Recommendation:** {recommendation}")
             if item.get("job_location"):
-                st.write(f"**Location:** {item['job_location']}")
+                pass
             if item.get("job_url"):
                 st.write(f"**Job URL:** {item['job_url']}")
             st.write(
@@ -1559,6 +1788,57 @@ def render_history_page() -> None:
                 st.session_state["app_page"] = "Workflow"
                 st.success("Analysis reopened in the workflow.")
                 st.rerun()
+            if st.button("Duplicate Analysis", key=f"duplicate_{item['id']}"):
+                st.session_state["analysis"] = analysis or None
+                st.session_state["generated"] = generated or None
+                st.session_state["app_page"] = "Workflow"
+                st.success("Analysis duplicated into the workflow for editing.")
+                st.rerun()
+            if st.button("Delete Analysis", key=f"delete_{item['id']}"):
+                success, message = delete_application(st.session_state.get("user_email", ""), item["id"])
+                if success:
+                    st.success(message)
+                    st.rerun()
+                else:
+                    st.error(message)
+
+
+def render_saved_resumes_page() -> None:
+    st.subheader("My Resumes")
+    resumes = list_saved_resumes(st.session_state.get("user_email", ""))
+    if not resumes:
+        st.info("Saved resumes will appear here after you upload a resume in the workflow.")
+        return
+    for item in resumes:
+        with st.expander(f"{item.get('resume_name', 'Resume')} | {item.get('original_filename', '')}"):
+            st.write(f"**Resume name:** {item.get('resume_name', '')}")
+            st.write(f"**File name:** {item.get('original_filename', '')}")
+            st.write(f"**Created:** {item.get('created_at', '')}")
+            st.write(f"**Last used:** {item.get('last_used_at', '')}")
+            if st.button("Use Resume", key=f"use_resume_{item['resume_id']}"):
+                saved_resume = get_saved_resume(st.session_state.get("user_email", ""), item["resume_id"])
+                if saved_resume:
+                    st.session_state["resume_text"] = saved_resume.get("extracted_text", "")
+                    st.session_state["resume_filename"] = saved_resume.get("original_filename", "")
+                    st.session_state["app_page"] = "Workflow"
+                    mark_saved_resume_used(st.session_state.get("user_email", ""), item["resume_id"])
+                    st.success("Saved resume loaded into the workflow.")
+                    st.rerun()
+            new_name = st.text_input("Rename resume", value=item.get("resume_name", ""), key=f"rename_resume_text_{item['resume_id']}")
+            if st.button("Rename", key=f"rename_resume_{item['resume_id']}"):
+                success, message = rename_saved_resume(st.session_state.get("user_email", ""), item["resume_id"], new_name)
+                if success:
+                    st.success(message)
+                    st.rerun()
+                else:
+                    st.error(message)
+            if st.button("Delete", key=f"delete_resume_{item['resume_id']}"):
+                success, message = delete_saved_resume(st.session_state.get("user_email", ""), item["resume_id"])
+                if success:
+                    st.success(message)
+                    st.rerun()
+                else:
+                    st.error(message)
 
 
 def render_profile_page() -> None:
@@ -1580,10 +1860,14 @@ def render_profile_page() -> None:
             st.error(message)
 
     st.write("**Subscription**")
-    st.write(f"Current plan: {profile.get('subscription_status', 'free').title()}")
+    st.write(f"Current plan: {profile.get('subscription_plan', profile.get('subscription_status', 'free')).title()}")
     st.write(
         f"Free assessments used: {access.get('used', 0)} / {access.get('limit', 1)} | Remaining: {access.get('remaining', 0)}"
     )
+    st.write(f"Purchased credits: {access.get('credits', 0)}")
+    st.write(f"Total analyses: {get_dashboard_metrics(user_email).get('jobs_analyzed', 0)}")
+    st.write(f"Subscription status: {profile.get('subscription_status', 'free').title()}")
+    st.write(f"Email verified: {'Yes' if profile.get('email_verified') else 'No'}")
     st.caption("Stripe-ready billing scaffolding is configured so checkout and portal flows can be attached without changing the product workflow.")
     for plan in subscription.get("plans", []):
         with st.expander(plan["name"]):
@@ -1598,6 +1882,10 @@ def render_profile_page() -> None:
     st.write("**Implementation next steps**")
     for item in subscription.get("next_steps", []):
         st.write(f"- {item}")
+    if st.button("Manage Billing", use_container_width=True):
+        st.session_state["app_page"] = "Pro"
+        st.rerun()
+    st.caption("Change password is available from the auth screen. Delete account requests can be submitted through Contact.")
 
 
 def render_pro_page() -> None:
@@ -1644,10 +1932,69 @@ def render_pro_page() -> None:
         st.write(f"- {benefit}")
 
     if st.button("Upgrade to Career Match Pro", type="primary", use_container_width=True):
-        if subscription.get("public_key_configured") and subscription.get("secret_key_configured"):
-            st.info("Stripe-ready checkout placeholder: connect the live checkout session URL here.")
+        user_id = get_user_id(st.session_state.get("user_email", "")) if st.session_state.get("is_authenticated") else 0
+        checkout = create_pro_checkout_session(user_id)
+        if checkout.get("ok"):
+            st.success(checkout.get("message", ""))
+            st.write(f"[Open Pro Checkout Placeholder]({checkout.get('checkout_url', '#')})")
         else:
-            st.info("Stripe is not configured yet. This placeholder page is ready for checkout wiring.")
+            st.info(checkout.get("message", "Payments are not configured yet."))
+    if st.button("Buy One Assessment", use_container_width=True):
+        user_id = get_user_id(st.session_state.get("user_email", "")) if st.session_state.get("is_authenticated") else 0
+        checkout = create_credit_checkout_session(user_id)
+        if checkout.get("ok"):
+            st.success(checkout.get("message", ""))
+            st.write(f"[Open Assessment Checkout Placeholder]({checkout.get('checkout_url', '#')})")
+        else:
+            st.info(checkout.get("message", "Payments are not configured yet."))
+    if st.button("Return to Dashboard", use_container_width=True):
+        if st.session_state.get("is_authenticated"):
+            st.session_state["app_page"] = "Dashboard"
+            _set_view("app")
+        else:
+            _set_view("home")
+        st.rerun()
+    if st.session_state.get("is_authenticated"):
+        demo_left, demo_right = st.columns(2)
+        with demo_left:
+            if st.button("Demo: Add 1 Assessment Credit", use_container_width=True):
+                success, message = add_assessment_credits(st.session_state.get("user_email", ""), 1)
+                if success:
+                    save_payment_record(
+                        PaymentRecord(
+                            user_id=get_user_id(st.session_state.get("user_email", "")),
+                            stripe_session_id="demo_credit",
+                            stripe_payment_intent="demo_credit",
+                            amount=499,
+                            currency="usd",
+                            product_type="one_time_assessment",
+                            status="simulated",
+                            created_at=datetime.now().isoformat(timespec="seconds"),
+                        )
+                    )
+                    st.success("1 assessment credit added.")
+                else:
+                    st.error(message)
+        with demo_right:
+            if st.button("Demo: Simulate Pro Webhook", use_container_width=True):
+                result = handle_webhook_event(
+                    "checkout.session.completed",
+                    {
+                        "user_email": st.session_state.get("user_email", ""),
+                        "stripe_session_id": "demo_pro_session",
+                        "stripe_payment_intent": "demo_pro_intent",
+                        "stripe_customer_id": "cus_demo",
+                        "stripe_subscription_id": "sub_demo",
+                        "amount": 1900,
+                        "currency": "usd",
+                        "product_type": "pro_monthly",
+                        "status": "completed",
+                    },
+                )
+                if result.get("ok"):
+                    st.success("Pro subscription simulated.")
+                else:
+                    st.error(result.get("message", "Unable to simulate Pro."))
 
     if st.session_state.get("is_authenticated") and not _subscription_is_active():
         if st.button("Demo: Unlock Pro Access", use_container_width=True):
@@ -1670,17 +2017,19 @@ def render_contact_page() -> None:
         email = st.text_input("Email", value=st.session_state.get("user_email", ""))
         message_type = st.selectbox(
             "Message type",
-            ["General Question", "Bug Report", "Feature Request", "Billing Question"],
+            ["Support", "Billing", "Bug Report", "Feature Request", "Partnership", "Privacy Request"],
         )
         message = st.text_area("Message", height=180)
         submitted = st.form_submit_button("Submit", use_container_width=True)
     if submitted:
         submission = ContactSubmission(
             created_at=datetime.now().isoformat(timespec="seconds"),
+            user_id=get_user_id((email or "").strip().lower()) if (email or "").strip() else 0,
             user_email=(email or "").strip().lower(),
             name=name.strip(),
             message_type=message_type,
             message=message.strip(),
+            status="new",
         )
         save_contact_submission(submission)
         st.success("Thanks for reaching out. Your message has been saved and is ready for follow-up.")
@@ -1692,11 +2041,12 @@ def render_contact_page() -> None:
 
 def render_privacy_page() -> None:
     st.subheader("Privacy Policy")
-    st.write("Career Match may store uploaded resumes, pasted or extracted job descriptions, account email/password data, generated outputs, feedback, and support submissions so the service can function and preserve user history.")
+    st.write("Career Match may store account email, resume uploads, job description URLs, manual pasted job descriptions, generated AI outputs, analysis history, contact messages, and feedback submissions so the service can function and preserve user history.")
     st.write("Resume uploads and job descriptions are processed to generate fit analysis, resume rewrites, interview preparation, and related outputs.")
     st.write("Account records include email addresses and securely hashed passwords. Plaintext passwords are not stored.")
-    st.write("Generated outputs and saved analyses may be retained in the application database to support dashboard metrics, history, and reopened analyses.")
-    st.write("Users may request account or data deletion through the contact channel. Contact email placeholder: support@careermatch.example")
+    st.write("Generated outputs and saved analyses may be retained in the application database to support dashboard metrics, history, reopened analyses, and saved resume features.")
+    st.write("Payment data is handled through Stripe when billing is configured. Career Match stores only the metadata needed to track plan status, credits, and payment history.")
+    st.write("Career Match does not sell user resumes. Users may request account or data deletion through the contact channel. Contact email placeholder: support@careermatch.example")
     st.write("Retention periods may vary by plan, support need, and deployment environment.")
     if not st.session_state.get("is_authenticated"):
         if st.button("Back to Home", key="privacy_home", use_container_width=True):
@@ -1706,11 +2056,13 @@ def render_privacy_page() -> None:
 
 def render_terms_page() -> None:
     st.subheader("Terms of Service")
-    st.write("Career Match provides AI-generated resume analysis and writing assistance. All content should be reviewed by the user before submission to any employer.")
+    st.write("Career Match is a decision-support tool that provides AI-generated resume analysis and writing assistance. All content should be reviewed by the user before submission to any employer.")
     st.write("The service does not guarantee interviews, job offers, or employment outcomes.")
-    st.write("Career Match does not provide legal, financial, or employment advice.")
+    st.write("Career Match does not provide legal, financial, employment, or career guarantees.")
     st.write("Users are responsible for confirming that generated materials are accurate, truthful, and appropriate for the target role.")
-    st.write("Service availability may vary based on hosting, third-party APIs, and maintenance windows.")
+    st.write("Subscriptions and one-time purchases are subject to configured billing terms. Refund policy placeholder: contact support for billing review.")
+    st.write("Accounts may be limited or terminated for abuse, misuse, or service protection reasons.")
+    st.write("Service availability may vary based on hosting, third-party APIs, maintenance windows, and platform outages.")
     if not st.session_state.get("is_authenticated"):
         if st.button("Back to Home", key="terms_home", use_container_width=True):
             _set_view("home")
@@ -1737,12 +2089,41 @@ def render_feedback_section() -> None:
             user_email=st.session_state.get("user_email", ""),
             user_id=get_user_id(st.session_state.get("user_email", "")),
             application_id=int(st.session_state.get("last_application_id", 0)),
-            helpful=1 if helpful_label == "Helpful" else 0,
+            rating=helpful_label,
             comment=comment.strip(),
         )
         save_analysis_feedback(feedback)
         st.session_state["feedback_submitted_for_analysis"] = True
         st.success("Thanks for your feedback.")
+
+
+def render_admin_page() -> None:
+    st.subheader("Admin")
+    if not _user_is_admin():
+        st.error("You do not have access to this page.")
+        return
+    metrics = admin_metrics()
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Users", metrics.get("total_users", 0))
+    col2.metric("Free Users", metrics.get("free_users", 0))
+    col3.metric("Pro Users", metrics.get("pro_users", 0))
+    col4.metric("Total Analyses", metrics.get("total_analyses", 0))
+    col5, col6, col7 = st.columns(3)
+    col5.metric("Contact Messages", metrics.get("total_contact_messages", 0))
+    col6.metric("Feedback Items", metrics.get("total_feedback_items", 0))
+    col7.metric("Average Fit Score", metrics.get("average_fit_score", 0))
+
+    st.write("**Most common missing skills**")
+    for skill, count in metrics.get("most_common_missing_skills", []):
+        st.write(f"- {skill}: {count}")
+
+    st.write("**Recent contact messages**")
+    for item in metrics.get("recent_contact_messages", []):
+        st.write(f"- {item.get('created_at', '')} | {item.get('email', '')} | {item.get('message_type', '')}")
+
+    st.write("**Recent feedback**")
+    for item in metrics.get("recent_feedback", []):
+        st.write(f"- {item.get('created_at', '')} | {item.get('rating', '')} | Analysis {item.get('application_id', 0)}")
 
 
 def render_application_shell() -> None:
@@ -1801,6 +2182,8 @@ def render_authenticated_app() -> None:
         render_dashboard_page()
     elif selected_page == "Analysis History":
         render_history_page()
+    elif selected_page == "My Resumes":
+        render_saved_resumes_page()
     elif selected_page == "Pro":
         render_pro_page()
     elif selected_page == "Contact":
@@ -1838,6 +2221,8 @@ def main() -> None:
 
         if requested_view in {"home", "contact", "privacy", "terms", "pro"}:
             render_public_page(requested_view)
+        elif requested_view == "admin":
+            render_admin_page()
         elif requested_view == "auth":
             render_auth_page()
         else:

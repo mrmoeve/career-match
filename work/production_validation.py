@@ -8,7 +8,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from streamlit.testing.v1 import AppTest
 
-from database.db import DB_PATH, get_dashboard_metrics, set_subscription_status
+from database.db import DB_PATH, add_assessment_credits, get_dashboard_metrics, set_subscription_plan
 from services.analysis_service import compare_resume_to_job
 from services.export_service import build_optimized_resume_docx, build_optimized_resume_pdf
 from services.resume_builder_service import build_optimized_resume_package
@@ -67,6 +67,12 @@ def main() -> None:
     print("trust_score", at.session_state["generated"]["resume_builder"]["trust_score"])
     print("saved_application", at.session_state["application_saved"])
     print("exception_count", len(at.exception))
+    feedback_radios = [item for item in at.radio if item.label == "Helpful"]
+    if feedback_radios:
+        feedback_radios[0].set_value("Helpful")
+        at.text_area[-1].set_value("Strong recruiter-quality framing.")
+        next(button for button in at.button if button.label == "Submit Feedback").click()
+        at.run()
     print("free_usage_after_first", get_dashboard_metrics(email)["free_assessments_used"])
     print("free_remaining_after_first", get_dashboard_metrics(email)["free_assessments_remaining"])
 
@@ -74,7 +80,15 @@ def main() -> None:
     at.run(timeout=60)
     print("second_assessment_routes_to_pro", at.session_state["app_page"] == "Pro")
 
-    set_subscription_status(email, "pro")
+    add_assessment_credits(email, 1)
+    at.session_state["app_page"] = "Workflow"
+    at.run()
+    next(button for button in at.button if button.label == "Analyze and generate materials").click()
+    at.run(timeout=60)
+    print("credit_user_bypasses_paywall_once", at.session_state["app_page"] == "Workflow")
+    print("credits_after_consumption", get_dashboard_metrics(email)["assessment_credits"])
+
+    set_subscription_plan(email, "active", "pro")
     at.session_state["app_page"] = "Workflow"
     at.run()
     next(button for button in at.button if button.label == "Analyze and generate materials").click()
@@ -95,12 +109,27 @@ def main() -> None:
     conn = sqlite3.connect(DB_PATH)
     try:
         saved_contact_count = conn.execute(
-            "SELECT COUNT(*) FROM contact_submissions WHERE user_email = ?",
+            "SELECT COUNT(*) FROM contact_messages WHERE user_email = ?",
+            (email,),
+        ).fetchone()[0]
+        saved_feedback_count = conn.execute(
+            "SELECT COUNT(*) FROM analysis_feedback WHERE user_email = ?",
+            (email,),
+        ).fetchone()[0]
+        saved_resume_count = conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM saved_resumes sr
+            JOIN users u ON u.id = sr.user_id
+            WHERE u.email = ?
+            """,
             (email,),
         ).fetchone()[0]
     finally:
         conn.close()
     print("contact_saved", saved_contact_count >= 1)
+    print("feedback_saved", saved_feedback_count >= 1)
+    print("saved_resume_count", saved_resume_count)
 
     next(button for button in at.button if button.label == "Home").click()
     at.run()

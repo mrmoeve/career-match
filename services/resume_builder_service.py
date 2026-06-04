@@ -337,6 +337,32 @@ def _build_recruiter_ready_bullets(sections: dict[str, list[str]], evidence_map:
     return bullets[:8]
 
 
+def _build_rewritten_bullet_details(original_resume_text: str, rewritten_sections: dict[str, list[str]], evidence_map: dict[str, dict]) -> list[dict]:
+    original_header, original_sections = _split_resume_sections(original_resume_text)
+    del original_header
+    original_bullets = [line.strip() for line in original_sections.get("experience", []) if line.strip().startswith("-")]
+    improved_bullets = [line.strip() for line in rewritten_sections.get("experience", []) if line.strip().startswith("-")]
+    evidence_terms = list(evidence_map.keys())
+    details: list[dict] = []
+    for index, (original, improved) in enumerate(zip(original_bullets, improved_bullets), start=1):
+        related_term = next((term for term in evidence_terms if term.lower() in improved.lower()), "")
+        evidence = evidence_map.get(related_term, {})
+        details.append(
+            {
+                "original_bullet": original,
+                "improved_bullet": improved,
+                "why_it_improved": "The rewrite uses clearer recruiter-facing language while staying grounded in the original accomplishment.",
+                "evidence_used": evidence.get("exact_resume_line", original),
+                "recruiter_explanation": (
+                    f"This version makes the transferable value more explicit for {related_term}."
+                    if related_term
+                    else "This version improves clarity and alignment without inventing new facts."
+                ),
+            }
+        )
+    return details[:8]
+
+
 def _replace_or_insert_section(sections: dict[str, list[str]], key: str, new_lines: list[str]) -> None:
     sections[key] = new_lines
 
@@ -462,6 +488,7 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
         _replace_or_insert_section(sections, "skills", [", ".join(optimized_skills)])
     _rewrite_experience_lines(sections, analysis, evidence_map)
     recruiter_ready_bullets = _build_recruiter_ready_bullets(sections, evidence_map)
+    rewritten_bullet_details = _build_rewritten_bullet_details(resume_text, sections, evidence_map)
 
     optimized_resume_text = _render_resume(header, sections)
     optimized_analysis = compare_resume_to_job(optimized_resume_text, job_description_text)
@@ -528,6 +555,7 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
             "Generated recruiter-ready bullet rewrites grounded in the original experience section.",
         ],
         "recruiter_ready_bullets": recruiter_ready_bullets,
+        "rewritten_bullet_details": rewritten_bullet_details,
         "resume_evidence_map": evidence_map,
         "added_keyword_explanations": _build_keyword_explanations(keywords_added, analysis, evidence_map),
         "bridge_the_gap_guidance": _build_bridge_the_gap_guidance(analysis, evidence_map),
