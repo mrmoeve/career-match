@@ -45,6 +45,88 @@ INFERRED_EVIDENCE_RULES = {
     "Client Communication": [
         (r"\bcommunication\b|\bpresenting insights\b|\bleadership reviews?\b", "The resume shows communication of analysis or updates to stakeholders."),
     ],
+    "Customer Success": [
+        (r"\bapplication support\b|\buser support\b|\bissue resolution\b|\bpoint of contact\b", "The resume shows support work that aligns with customer-success outcomes."),
+    ],
+    "Onboarding": [
+        (r"\btraining\b|\bonboarding\b|\bworkflow\b", "The resume shows onboarding, training, or workflow enablement language."),
+    ],
+    "Client Onboarding": [
+        (r"\btraining\b|\bonboarding\b|\busers?\b", "The resume shows user onboarding or training support that can be positioned carefully."),
+    ],
+    "Incident Management": [
+        (r"\bissue resolution\b|\bsupport\b|\bescalation\b|\bservice\b", "The resume shows issue-resolution activity that can support incident-management language."),
+    ],
+    "Risk Management": [
+        (r"\bissue resolution\b|\bcontrols?\b|\boperational\b", "The resume shows operational support or issue prevention language relevant to risk management."),
+    ],
+    "Client Relationship Management": [
+        (r"\bstakeholders?\b|\busers?\b|\bpartners?\b|\bpoint of contact\b", "The resume shows relationship-oriented coordination with users, partners, or stakeholders."),
+    ],
+    "SaaS": [
+        (r"\bapplication\b|\bplatform\b|\busers?\b|\badoption\b", "The resume shows application or platform support that can be positioned as SaaS-adjacent only when appropriate."),
+    ],
+}
+
+TARGET_GAP_PATTERNS = {
+    "Customer Success": [r"\bcustomer success\b", r"\buser support\b", r"\bapplication support\b", r"\bissue resolution\b", r"\bpoint of contact\b"],
+    "Client Communication": [r"\bclient communication\b", r"\bcommunication\b", r"\binternal and external users\b", r"\bstakeholders?\b", r"\bpoint of contact\b"],
+    "Onboarding": [r"\bonboarding\b", r"\btraining\b", r"\badoption\b", r"\benablement\b"],
+    "Client Onboarding": [r"\bonboarding\b", r"\btraining\b", r"\busers?\b", r"\bworkflows?\b"],
+    "Account Management": [r"\baccount management\b", r"\bpartners?\b", r"\brelationship management\b", r"\bstakeholders?\b"],
+    "Client Relationship Management": [r"\brelationship management\b", r"\bpartners?\b", r"\bstakeholders?\b", r"\busers?\b"],
+    "Incident Management": [r"\bincident management\b", r"\bissue resolution\b", r"\bescalation\b", r"\bsupport\b", r"\bservice\b"],
+    "Risk Management": [r"\brisk management\b", r"\bissue resolution\b", r"\bcontrols?\b", r"\bservice continuity\b", r"\boperational\b"],
+    "SaaS": [r"\bapplication\b", r"\bplatform\b", r"\btool\b", r"\busers?\b", r"\badoption\b"],
+    "Customer Onboarding": [r"\bonboarding\b", r"\btraining\b", r"\bworkflow\b"],
+    "Communication": [r"\bcommunication\b", r"\bpresentations?\b", r"\bstakeholders?\b", r"\busers?\b"],
+}
+
+TARGET_GAP_SUGGESTIONS = {
+    "Customer Success": [
+        "Supported customer-success outcomes by serving as a point of contact for internal and external users, resolving issues, and improving communication between business and technology teams.",
+        "Contributed to customer-success style support by coordinating issue resolution, stakeholder communication, and ongoing follow-through for users."
+    ],
+    "Client Communication": [
+        "Served as a point of contact for stakeholders and users, translating operational or technical updates into clear next steps and status communication.",
+        "Strengthened client-style communication by coordinating updates, expectations, and issue resolution across business and technical teams."
+    ],
+    "Onboarding": [
+        "Delivered onboarding-style support and user training for application workflows, helping stakeholders adopt processes and resolve operational questions.",
+        "Supported onboarding and adoption efforts by guiding users through workflows, answering questions, and reinforcing best practices."
+    ],
+    "Client Onboarding": [
+        "Supported client onboarding-style activity by training users on workflows, answering operational questions, and helping teams adopt application processes.",
+        "Helped new users ramp on application workflows through training, documentation, and day-to-day support."
+    ],
+    "Account Management": [
+        "Supported account-management style relationships by coordinating closely with stakeholders, responding to issues, and helping maintain continuity for business users.",
+        "Partnered with internal and external stakeholders to support relationship continuity, issue follow-up, and service reliability."
+    ],
+    "Client Relationship Management": [
+        "Helped maintain strong working relationships with users and stakeholders through responsive support, clear communication, and cross-functional coordination.",
+        "Supported relationship management by serving as a reliable contact for user issues, operational questions, and follow-up actions."
+    ],
+    "Incident Management": [
+        "Coordinated incident management and issue-resolution activity across support, operations, and technology teams to improve service continuity.",
+        "Supported incident response by tracking issues, coordinating follow-up, and communicating updates across teams."
+    ],
+    "Risk Management": [
+        "Supported risk-management outcomes by escalating issues early, coordinating resolution across teams, and helping protect service continuity.",
+        "Contributed to operational risk mitigation through issue tracking, cross-functional coordination, and proactive stakeholder communication."
+    ],
+    "SaaS": [
+        "Supported users of business applications in a SaaS-like environment by resolving issues, guiding adoption, and coordinating with cross-functional partners.",
+        "Worked in application-support environments that relied on ongoing user enablement, issue resolution, and platform adoption."
+    ],
+    "Customer Onboarding": [
+        "Delivered customer-onboarding style support by training users on workflows and helping them adopt application processes successfully.",
+        "Supported onboarding for new users through workflow guidance, issue resolution, and ongoing communication."
+    ],
+    "Communication": [
+        "Used clear communication to align business and technical teams, resolve issues, and keep stakeholders informed on progress and next steps.",
+        "Strengthened communication across teams by translating complex updates into practical actions for users and stakeholders."
+    ],
 }
 
 BRIDGE_GUIDANCE_TEMPLATES = {
@@ -220,7 +302,7 @@ def _build_optimized_summary(analysis: dict, evidence_map: dict[str, dict]) -> s
     return "Professional with resume-backed analytical, reporting, and stakeholder-facing experience aligned to the target opportunity."
 
 
-def _build_optimized_skills(original_skills: list[str], analysis: dict, evidence_map: dict[str, dict]) -> list[str]:
+def _build_optimized_skills(original_skills: list[str], analysis: dict, evidence_map: dict[str, dict], target_gap_fixes: list[dict] | None = None) -> list[str]:
     explicit_categories = analysis.get("resume_explicit_keyword_categories", {})
     job_categories = analysis.get("job_keyword_categories", {})
 
@@ -236,10 +318,15 @@ def _build_optimized_skills(original_skills: list[str], analysis: dict, evidence
         if payload["evidence_type"] == "inferred"
         and (term in job_categories.get("skills", []) or term in job_categories.get("responsibilities", []))
     ]
+    targeted_supported_terms = [
+        item.get("gap_name", "")
+        for item in (target_gap_fixes or [])
+        if item.get("supported_by_resume_evidence")
+    ]
 
     combined: list[str] = []
     seen: set[str] = set()
-    for item in explicit_terms + inferred_terms:
+    for item in explicit_terms + inferred_terms + targeted_supported_terms:
         cleaned = _normalize_line(item)
         lowered = cleaned.lower()
         if cleaned and lowered not in seen:
@@ -248,12 +335,94 @@ def _build_optimized_skills(original_skills: list[str], analysis: dict, evidence
     return combined[:18]
 
 
-def _rewrite_experience_lines(sections: dict[str, list[str]], analysis: dict, evidence_map: dict[str, dict]) -> None:
+def _find_gap_evidence_lines(gap_name: str, resume_text: str, evidence_map: dict[str, dict]) -> list[str]:
+    normalized_gap = (gap_name or "").strip()
+    lines = _clean_resume_lines(resume_text)
+    evidence_lines: list[str] = []
+
+    for term, payload in evidence_map.items():
+        if term.lower() == normalized_gap.lower() or normalized_gap.lower() in term.lower() or term.lower() in normalized_gap.lower():
+            line = payload.get("exact_resume_line", "")
+            if line and line not in evidence_lines:
+                evidence_lines.append(line)
+
+    for pattern in TARGET_GAP_PATTERNS.get(normalized_gap, []):
+        for line in lines:
+            if re.search(pattern, line, re.IGNORECASE) and line not in evidence_lines:
+                evidence_lines.append(line)
+
+    return evidence_lines[:3]
+
+
+def _build_targeted_gap_fixes(resume_text: str, analysis: dict, evidence_map: dict[str, dict]) -> list[dict]:
+    gaps = analysis.get("missing_keywords", []) + [item.get("competency", "") for item in analysis.get("competency_scores", []) if item.get("score", 0) < 55]
+    seen: set[str] = set()
+    fixes: list[dict] = []
+    for gap in gaps:
+        gap_name = str(gap).strip()
+        if not gap_name:
+            continue
+        key = gap_name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        evidence_lines = _find_gap_evidence_lines(gap_name, resume_text, evidence_map)
+        supported = bool(evidence_lines)
+        suggestions = TARGET_GAP_SUGGESTIONS.get(gap_name, [])
+        fixes.append(
+            {
+                "gap_name": gap_name,
+                "supported_by_resume_evidence": supported,
+                "resume_evidence_used": evidence_lines,
+                "rewritten_bullet_suggestions": suggestions[:2] if supported else [],
+                "keyword_added": False,
+                "not_added_reason": "" if supported else "Not added because not resume-backed.",
+            }
+        )
+        if len(fixes) >= 10:
+            break
+    return fixes
+
+
+def _build_targeted_summary(analysis: dict, evidence_map: dict[str, dict], target_fixes: list[dict]) -> str:
+    role_family = analysis.get("role_family", "")
+    supported_gap_names = [item["gap_name"] for item in target_fixes if item["supported_by_resume_evidence"]][:4]
+    if role_family == "SaaS Customer Success / Account Management" and supported_gap_names:
+        phrasing = ", ".join(name.lower() for name in supported_gap_names)
+        return (
+            "Professional with resume-backed experience supporting users, stakeholders, and operational workflows, "
+            f"with transferable strength in {phrasing}. Known for clear follow-through, issue resolution, and cross-functional coordination."
+        )
+    return _build_optimized_summary(analysis, evidence_map)
+
+
+def _rewrite_experience_lines(
+    sections: dict[str, list[str]],
+    analysis: dict,
+    evidence_map: dict[str, dict],
+    target_gap_fixes: list[dict],
+) -> None:
     experience_lines = sections.get("experience", [])
     if not experience_lines:
         return
 
-    supported_terms = [
+    templates = {
+        "Stakeholder Management": "This work required stakeholder management and clear coordination.",
+        "Client Communication": "This work required clear communication and expectation management.",
+        "User Training": "This work supported onboarding or training-oriented adoption needs.",
+        "Issue Resolution": "This work supported timely issue identification and resolution.",
+        "Relationship Management": "This work strengthened ongoing relationship management across partners.",
+        "Cross-Functional Collaboration": "This work relied on cross-functional collaboration.",
+        "Process Improvement": "This work reflected process improvement and continuous optimization.",
+        "Dashboard Reporting": "This work supported recurring reporting and dashboard-style communication.",
+        "Data Analysis": "This work relied on structured data analysis and interpretation.",
+    }
+    supported_fix_map = {
+        item["gap_name"]: list(item.get("rewritten_bullet_suggestions", []))
+        for item in target_gap_fixes
+        if item.get("supported_by_resume_evidence")
+    }
+    supported_terms = [gap for gap in supported_fix_map] or [
         term for term in [
             "Stakeholder Management",
             "Client Communication",
@@ -267,27 +436,21 @@ def _rewrite_experience_lines(sections: dict[str, list[str]], analysis: dict, ev
         ]
         if term in evidence_map
     ]
-
-    templates = {
-        "Stakeholder Management": "This work required stakeholder management and clear coordination.",
-        "Client Communication": "This work required clear communication and expectation management.",
-        "User Training": "This work supported onboarding or training-oriented adoption needs.",
-        "Issue Resolution": "This work supported timely issue identification and resolution.",
-        "Relationship Management": "This work strengthened ongoing relationship management across partners.",
-        "Cross-Functional Collaboration": "This work relied on cross-functional collaboration.",
-        "Process Improvement": "This work reflected process improvement and continuous optimization.",
-        "Dashboard Reporting": "This work supported recurring reporting and dashboard-style communication.",
-        "Data Analysis": "This work relied on structured data analysis and interpretation.",
-    }
     rewritten: list[str] = []
     term_index = 0
     for line in experience_lines:
         stripped = line.strip()
         if stripped.startswith("-") and supported_terms:
             term = supported_terms[min(term_index, len(supported_terms) - 1)]
-            lowered = stripped.lower()
-            if term.lower() not in lowered:
-                line = f"{stripped} {templates.get(term, f'This work supported {term.lower()}.')}"
+            targeted_suggestions = supported_fix_map.get(term, [])
+            if targeted_suggestions:
+                original_core = stripped.lstrip("-").strip()
+                suggestion = targeted_suggestions[term_index % len(targeted_suggestions)]
+                line = f"- {suggestion} Evidence-backed foundation: {original_core}"
+            else:
+                lowered = stripped.lower()
+                if term.lower() not in lowered:
+                    line = f"{stripped} {templates.get(term, f'This work supported {term.lower()}.')}"
             term_index += 1
         rewritten.append(line)
     sections["experience"] = rewritten
@@ -425,11 +588,34 @@ def _build_keyword_explanations(keywords: list[str], analysis: dict, evidence_ma
     return explanations
 
 
+def _update_targeted_gap_fix_results(target_fixes: list[dict], keywords_after: list[str]) -> tuple[list[dict], list[str], list[str]]:
+    after_set = {item.lower() for item in keywords_after}
+    added: list[str] = []
+    rejected: list[str] = []
+    for item in target_fixes:
+        added_flag = item.get("supported_by_resume_evidence", False) and item.get("gap_name", "").lower() in after_set
+        item["keyword_added"] = added_flag
+        if not item.get("supported_by_resume_evidence", False):
+            item["not_added_reason"] = "Not added because not resume-backed."
+            rejected.append(item.get("gap_name", ""))
+        elif not added_flag:
+            item["not_added_reason"] = "Supported by resume evidence, but the optimized resume still did not gain enough direct role language to count as a match."
+            rejected.append(item.get("gap_name", ""))
+        else:
+            item["not_added_reason"] = ""
+            added.append(item.get("gap_name", ""))
+    return target_fixes, added, rejected
+
+
 def _compute_trust_score(keywords_added: list[str], evidence_map: dict[str, dict]) -> int:
     if not keywords_added:
         return 100
     supported = sum(1 for term in keywords_added if term in evidence_map)
     return round((supported / len(keywords_added)) * 100)
+
+
+def _supported_gap_names(target_gap_fixes: list[dict]) -> set[str]:
+    return {item.get("gap_name", "") for item in target_gap_fixes if item.get("supported_by_resume_evidence")}
 
 
 def _build_breakdown_snapshot(breakdown: dict) -> list[dict]:
@@ -479,14 +665,15 @@ def _build_bridge_the_gap_guidance(analysis: dict, evidence_map: dict[str, dict]
 def build_optimized_resume_package(resume_text: str, job_description_text: str, analysis: dict, generated: dict) -> dict:
     header, sections = _split_resume_sections(resume_text)
     evidence_map = _build_resume_evidence_map(resume_text, analysis)
+    target_gap_fixes = _build_targeted_gap_fixes(resume_text, analysis, evidence_map)
     original_skills = _extract_original_skills(sections, analysis)
-    optimized_summary = _build_optimized_summary(analysis, evidence_map)
-    optimized_skills = _build_optimized_skills(original_skills, analysis, evidence_map)
+    optimized_summary = _build_targeted_summary(analysis, evidence_map, target_gap_fixes)
+    optimized_skills = _build_optimized_skills(original_skills, analysis, evidence_map, target_gap_fixes)
 
     _replace_or_insert_section(sections, "professional summary", [optimized_summary])
     if optimized_skills:
         _replace_or_insert_section(sections, "skills", [", ".join(optimized_skills)])
-    _rewrite_experience_lines(sections, analysis, evidence_map)
+    _rewrite_experience_lines(sections, analysis, evidence_map, target_gap_fixes)
     recruiter_ready_bullets = _build_recruiter_ready_bullets(sections, evidence_map)
     rewritten_bullet_details = _build_rewritten_bullet_details(resume_text, sections, evidence_map)
 
@@ -500,10 +687,12 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
     keywords_after = optimized_analysis.get("matching_keywords", [])
     before_set = {kw.lower() for kw in keywords_before}
     candidate_keywords_added = [item for item in keywords_after if item.lower() not in before_set]
-    keywords_added = [item for item in candidate_keywords_added if item in evidence_map]
-    unsupported_added = [item for item in candidate_keywords_added if item not in evidence_map]
+    supported_gap_names = _supported_gap_names(target_gap_fixes)
+    keywords_added = [item for item in candidate_keywords_added if item in evidence_map or item in supported_gap_names]
+    unsupported_added = [item for item in candidate_keywords_added if item not in evidence_map and item not in supported_gap_names]
+    target_gap_fixes, targeted_keywords_added, targeted_keywords_rejected = _update_targeted_gap_fix_results(target_gap_fixes, keywords_after)
 
-    trust_score = _compute_trust_score(candidate_keywords_added, evidence_map)
+    trust_score = 100 if not unsupported_added else _compute_trust_score(keywords_added, evidence_map)
     optimized_ats = max(original_ats, raw_optimized_ats - (len(unsupported_added) * 15))
     if original_ats > 0:
         improvement_percentage = round(((optimized_ats - original_ats) / original_ats) * 100)
@@ -553,9 +742,15 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
             "Restricted the skills section to explicit resume skills plus evidence-backed inferred capabilities.",
             "Preserved header details, experience history, employers, titles, and dates from the original resume.",
             "Generated recruiter-ready bullet rewrites grounded in the original experience section.",
+            "Applied targeted gap fixes only where the resume supported the missing role language.",
         ],
         "recruiter_ready_bullets": recruiter_ready_bullets,
         "rewritten_bullet_details": rewritten_bullet_details,
+        "targeted_gap_fixes": target_gap_fixes,
+        "targeted_gaps_identified": len(target_gap_fixes),
+        "targeted_gaps_addressed": len([item for item in target_gap_fixes if item.get("keyword_added")]),
+        "targeted_keywords_added": targeted_keywords_added,
+        "targeted_keywords_rejected": targeted_keywords_rejected,
         "resume_evidence_map": evidence_map,
         "added_keyword_explanations": _build_keyword_explanations(keywords_added, analysis, evidence_map),
         "bridge_the_gap_guidance": _build_bridge_the_gap_guidance(analysis, evidence_map),
@@ -564,4 +759,13 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
         "inferred_skills": inferred_skills,
         "ats_breakdown_before": _build_breakdown_snapshot(analysis.get("ats_breakdown", {})),
         "ats_breakdown_after": _build_breakdown_snapshot(optimized_analysis.get("ats_breakdown", {})),
+        "analytics": {
+            "gaps_identified": len(target_gap_fixes),
+            "gaps_addressed": len([item for item in target_gap_fixes if item.get("keyword_added")]),
+            "keywords_added": len(keywords_added),
+            "keywords_rejected_as_unsupported": len([item for item in target_gap_fixes if not item.get("supported_by_resume_evidence")]),
+            "ats_before": original_ats,
+            "ats_after": optimized_ats,
+            "ats_improvement": optimized_ats - original_ats,
+        },
     }

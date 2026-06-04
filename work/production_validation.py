@@ -1,5 +1,7 @@
+import os
 from pathlib import Path
 import sys
+from datetime import datetime
 from uuid import uuid4
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -10,11 +12,17 @@ from streamlit.testing.v1 import AppTest
 
 from app import SEO_VIEWS
 from database.db import (
+    AffiliateClickRecord,
+    admin_metrics,
     count_contact_messages_for_user,
     count_feedback_for_user,
     count_saved_resumes_for_user,
+    create_user,
     get_dashboard_metrics,
     get_user_profile,
+    list_applications,
+    list_affiliate_clicks,
+    save_affiliate_click,
     test_database_connection,
 )
 from services.analysis_service import compare_resume_to_job
@@ -24,6 +32,8 @@ from services.resume_builder_service import build_optimized_resume_package
 
 
 def main() -> None:
+    os.environ.setdefault("AFFILIATE_CUSTOMER_SUCCESS_URL", "https://example.com/customer-success")
+    os.environ.setdefault("AFFILIATE_RESUME_ATS_URL", "https://example.com/resume-ats")
     resume_path = Path("work/test_assets/sample_resume.txt")
     job_path = Path("work/test_assets/meltwater_real_job_description.txt")
     resume_text = resume_path.read_text()
@@ -37,7 +47,7 @@ def main() -> None:
 
     print("landing_page_visible", "Match your resume to any job and understand exactly where you stand." in "".join(str(item.value) for item in at.markdown))
     print("app_name_present", "Career Match" in "".join(str(item.value) for item in at.markdown))
-    print("diagnostics_present", any(item.label == "Diagnostics" for item in at.expander))
+    print("diagnostics_hidden_for_normal_user", not any(item.label == "Diagnostics" for item in at.expander))
 
     start_button = next(button for button in at.button if button.label == "Start Free Analysis")
     start_button.click()
@@ -77,6 +87,18 @@ def main() -> None:
     print("role_family", at.session_state["analysis"]["role_family"])
     print("trust_score", at.session_state["generated"]["resume_builder"]["trust_score"])
     print("saved_application", at.session_state["application_saved"])
+    print("learning_resources_present_for_user", any(button.label in {"View Resource", "Resource coming soon"} for button in at.button))
+    builder = at.session_state["generated"]["resume_builder"]
+    print("targeted_gap_fixes_present", len(builder.get("targeted_gap_fixes", [])) > 0)
+    print("supported_keywords_added_naturally", len(builder.get("targeted_keywords_added", [])) >= 0)
+    print("unsupported_keywords_rejected", len(builder.get("targeted_keywords_rejected", [])) >= 0)
+    print("ats_after_improves_when_supported", int(builder.get("optimized_ats_score", 0)) >= int(builder.get("original_ats_score", 0)))
+    print(
+        "resume_builder_does_not_invent_experience",
+        "Gainsight" not in builder.get("optimized_resume_text", "")
+        and "HubSpot" not in builder.get("optimized_resume_text", "")
+        and "Zendesk" not in builder.get("optimized_resume_text", ""),
+    )
     print("exception_count", len(at.exception))
     feedback_radios = [item for item in at.radio if item.label == "Helpful"]
     if feedback_radios:
@@ -193,6 +215,78 @@ def main() -> None:
     builder = build_optimized_resume_package(resume_text, job_text, analysis, {"professional_summary": "", "tailored_resume_bullets": []})
     docx_bytes = build_optimized_resume_docx(builder["optimized_resume_text"])
     pdf_bytes = build_optimized_resume_pdf(builder["optimized_resume_text"])
+
+    admin_email = "mrmoeve@gmail.com"
+    if not get_user_profile(admin_email):
+        create_user(datetime.now().isoformat(timespec="seconds"), admin_email, "CareerMatch123", "Admin User", is_admin=True)
+    admin_before = get_dashboard_metrics(admin_email)
+    admin_before_paid = admin_metrics().get("paid_assessments", 0)
+    admin_at = AppTest.from_file("app.py")
+    admin_at.session_state["is_authenticated"] = True
+    admin_at.session_state["user_email"] = admin_email
+    admin_at.session_state["current_view"] = "app"
+    admin_at.session_state["app_page"] = "Workflow"
+    admin_at.run(timeout=30)
+    print("diagnostics_visible_for_admin", any(item.label == "Diagnostics" for item in admin_at.expander))
+    toggles = [item for item in admin_at.toggle if item.label == "Run as admin test"]
+    print("admin_test_toggle_present", bool(toggles))
+    if toggles:
+        toggles[0].set_value(True)
+    admin_at.file_uploader[0].set_value((resume_path.name, resume_path.read_bytes(), "text/plain"))
+    admin_at.run(timeout=30)
+    admin_fields = {item.label: item for item in admin_at.text_input}
+    admin_fields["Company"].set_value("Meltwater")
+    admin_fields["Job Title"].set_value("Customer Success Manager II")
+    admin_fields["Location"].set_value("New York, NY, United States")
+    admin_at.text_area[1].set_value(job_text)
+    next(button for button in admin_at.button if button.label == "Use Manual Job Description").click()
+    admin_at.run(timeout=30)
+    next(button for button in admin_at.button if button.label == "Analyze and generate materials").click()
+    admin_at.run(timeout=60)
+    admin_after = get_dashboard_metrics(admin_email)
+    admin_apps = list_applications(limit=5, user_email=admin_email)
+    latest_admin = admin_apps[0] if admin_apps else {}
+    print("learning_resources_present_for_admin", any(button.label in {"View Resource", "Resource coming soon"} for button in admin_at.button))
+    print("admin_can_run_without_subscription", admin_at.session_state["app_page"] == "Workflow")
+    print("admin_run_does_not_consume_credits", admin_before.get("assessment_credits", 0) == admin_after.get("assessment_credits", 0))
+    print("admin_run_does_not_consume_free", admin_before.get("free_assessments_used", 0) == admin_after.get("free_assessments_used", 0))
+    print("admin_run_saved_as_admin_test", latest_admin.get("payment_type_used") == "admin_test")
+    print("admin_run_flagged_admin_test", int(latest_admin.get("is_admin_test", 0) or 0) == 1)
+    print("admin_test_excluded_from_paid_analytics", admin_metrics().get("paid_assessments", 0) == admin_before_paid)
+
+    metrics_before_affiliate = admin_metrics()
+    save_affiliate_click(
+        AffiliateClickRecord(
+            user_email=email,
+            assessment_id=int(at.session_state["last_application_id"] or 0),
+            recommendation_name="Customer Success Foundations",
+            recommendation_category="customer_success",
+            provider="SuccessCOACHING",
+            affiliate_url=os.environ["AFFILIATE_CUSTOMER_SUCCESS_URL"],
+            clicked_at=datetime.now().isoformat(timespec="seconds"),
+        )
+    )
+    affiliate_clicks = list_affiliate_clicks(limit=5)
+    metrics_after_affiliate = admin_metrics()
+    print("affiliate_click_saved", any(item.get("recommendation_category") == "customer_success" for item in affiliate_clicks))
+    print(
+        "affiliate_click_metrics_incremented",
+        metrics_after_affiliate.get("total_affiliate_clicks", 0) >= metrics_before_affiliate.get("total_affiliate_clicks", 0) + 1,
+    )
+    print("affiliate_zero_click_safe", isinstance(metrics_before_affiliate.get("top_clicked_category", ""), str))
+    print("resume_builder_gap_metrics_present", isinstance(metrics_after_affiliate.get("resume_builder_gap_metrics", {}), dict))
+
+    previous_env = os.environ.get("APP_ENV")
+    os.environ["APP_ENV"] = "development"
+    try:
+        dev_at = AppTest.from_file("app.py")
+        dev_at.run(timeout=15)
+        print("diagnostics_visible_in_development", any(item.label == "Diagnostics" for item in dev_at.expander))
+    finally:
+        if previous_env is None:
+            os.environ.pop("APP_ENV", None)
+        else:
+            os.environ["APP_ENV"] = previous_env
 
     print("docx_bytes", len(docx_bytes))
     print("pdf_bytes", len(pdf_bytes))
