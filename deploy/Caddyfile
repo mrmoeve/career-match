@@ -31,9 +31,6 @@
             header_up Host 127.0.0.1:8501
             header_up X-Forwarded-Host {host}
             header_up X-Forwarded-Proto {scheme}
-            header_up X-Request-Host {host}
-            header_up X-Allowed-Hosts "proxy-pass-through"
-            header_up X-Host-Validation-Result allowed
         }
     }
 }

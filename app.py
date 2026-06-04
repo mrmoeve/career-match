@@ -8,6 +8,7 @@ from pathlib import Path
 
 import streamlit as st
 from database.db import (
+    AffiliateClickRecord,
     ApplicationRecord,
     AnalysisFeedback,
     ContactSubmission,
@@ -38,6 +39,7 @@ from database.db import (
     rename_saved_resume,
     save_application,
     save_analysis_feedback,
+    save_affiliate_click,
     save_contact_submission,
     save_page_view,
     save_resume_stub,
@@ -47,6 +49,7 @@ from database.db import (
 )
 from prompts.templates import APP_DISCLAIMER
 from services.analysis_service import compare_resume_to_job
+from services.affiliate_service import build_learning_recommendations
 from services.export_service import (
     build_full_report_docx,
     build_full_report_pdf,
@@ -78,7 +81,6 @@ VALID_VIEWS = {"home", "auth", "app", "contact", "privacy", "terms", "pro", "adm
 BASE_APP_PAGES = ["Dashboard", "Workflow", "Analysis History", "My Resumes", "Pro", "Subscription", "Contact", "Privacy Policy", "Terms", "User Profile"]
 ADMIN_VIEW = "admin"
 DEFAULT_ADMIN_EMAILS = {"mrmoeve@gmail.com", "talisa.salvador@gmail.com"}
-PRODUCTION_ALLOWED_HOSTS = "localhost,127.0.0.1,career-match-w54c.onrender.com,*.onrender.com"
 
 
 st.set_page_config(
@@ -94,11 +96,6 @@ EXPORT_DIR.mkdir(exist_ok=True)
 LOG_DIR = BASE_DIR / "logs"
 logger = configure_logging(LOG_DIR)
 init_monitoring()
-logger.info(
-    "Startup host policy configured. allowed_hosts=%s app_env=%s validation_result=startup",
-    PRODUCTION_ALLOWED_HOSTS,
-    os.getenv("APP_ENV", "production").strip().lower(),
-)
 
 
 def _detect_local_app_status() -> dict:
@@ -148,25 +145,6 @@ def _detect_local_app_status() -> dict:
         detail = "Use the URL printed in the terminal for this running instance."
 
     return {"url": url, "warning": warning, "detail": detail}
-
-
-def _log_request_host_diagnostics() -> None:
-    headers = {}
-    try:
-        context = getattr(st, "context", None)
-        headers = dict(getattr(context, "headers", {}) or {})
-    except Exception:
-        headers = {}
-
-    request_host = headers.get("X-Request-Host") or headers.get("X-Forwarded-Host") or headers.get("Host") or "unknown"
-    allowed_hosts = headers.get("X-Allowed-Hosts", PRODUCTION_ALLOWED_HOSTS)
-    validation_result = headers.get("X-Host-Validation-Result", "unknown")
-    logger.info(
-        "Host validation diagnostics. request_host=%s allowed_hosts=%s result=%s",
-        request_host,
-        allowed_hosts,
-        validation_result,
-    )
 
 
 def is_debug_visible() -> bool:
@@ -514,6 +492,68 @@ def _ats_improvement_opportunities(analysis: dict) -> list[str]:
         if len(suggestions) >= 3:
             break
     return suggestions[:3] or ["The biggest ATS gains will come from clearer role-specific wording, not more keywords."]
+
+
+def _current_learning_recommendations() -> list[dict]:
+    analysis = st.session_state.get("analysis") or {}
+    if not analysis or not st.session_state.get("last_application_id"):
+        return []
+    return build_learning_recommendations(analysis)
+
+
+def _record_affiliate_click(recommendation: dict) -> None:
+    url = (recommendation.get("affiliate_url") or "").strip()
+    if not url:
+        return
+    save_affiliate_click(
+        AffiliateClickRecord(
+            user_email=st.session_state.get("user_email", ""),
+            assessment_id=int(st.session_state.get("last_application_id", 0) or 0),
+            recommendation_name=recommendation.get("title", ""),
+            recommendation_category=recommendation.get("category", ""),
+            provider=recommendation.get("provider", ""),
+            affiliate_url=url,
+            clicked_at=datetime.now().isoformat(timespec="seconds"),
+        )
+    )
+    logger.info(
+        "Affiliate resource clicked. current_user_email=%s assessment_id=%s recommendation=%s category=%s provider=%s",
+        st.session_state.get("user_email", "") or "anonymous",
+        st.session_state.get("last_application_id", 0),
+        recommendation.get("title", ""),
+        recommendation.get("category", ""),
+        recommendation.get("provider", ""),
+    )
+
+
+def render_learning_resources_section(key_prefix: str = "match") -> None:
+    recommendations = _current_learning_recommendations()
+    if not recommendations:
+        return
+    st.write("**Recommended Learning Resources**")
+    st.caption("Some resources may use affiliate links. Recommendations are based on your assessment gaps.")
+    for index, recommendation in enumerate(recommendations, start=1):
+        st.markdown(
+            f"""
+            <div class="mini-card">
+                <h4>{recommendation.get('title', '')}</h4>
+                <p class="summary-copy"><strong>Provider:</strong> {recommendation.get('provider', '')}</p>
+                <p class="summary-copy"><strong>Skill addressed:</strong> {recommendation.get('skill_addressed', '')}</p>
+                <p class="summary-copy">{recommendation.get('description', '')}</p>
+                <p class="summary-copy"><strong>Why recommended:</strong> {recommendation.get('why_recommended', '')}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        button_key = f"{key_prefix}_affiliate_resource_{recommendation.get('category', '')}_{index}"
+        if recommendation.get("available"):
+            if st.button(recommendation.get("button_label", "View Resource"), key=button_key):
+                _record_affiliate_click(recommendation)
+                safe_url = json.dumps(recommendation.get("affiliate_url", ""))
+                st.html(f"<script>window.parent.open({safe_url}, '_blank');</script>")
+                st.success("Opening resource in a new tab.")
+        else:
+            st.button(recommendation.get("button_label", "Resource coming soon"), key=button_key, disabled=True)
 
 
 def _recruiter_likelihood_label(analysis: dict) -> tuple[str, int]:
@@ -1704,6 +1744,7 @@ def render_match_tab() -> None:
             st.write(f"**Repositioning:** {item.get('repositioning', '')}")
             st.write(f"**Interview Talking Point:** {item.get('interview_talking_point', '')}")
 
+    render_learning_resources_section("match")
     render_feedback_section()
 
 
@@ -1767,6 +1808,8 @@ def render_resume_builder_tab() -> None:
 
     added = ", ".join(builder.get("keywords_added", [])) or "None identified"
     st.write(f"**Keywords added:** {added}")
+    not_added = ", ".join(builder.get("targeted_keywords_rejected", [])) or "None identified"
+    st.write(f"**Keywords not added:** {not_added}")
     if builder.get("unsupported_added_keywords"):
         st.error(
             "Unsupported additions detected and penalized in ATS scoring: "
@@ -1774,6 +1817,26 @@ def render_resume_builder_tab() -> None:
         )
     remaining = ", ".join(builder.get("missing_keywords_remaining", [])) or "None identified"
     st.write(f"**Remaining gaps:** {remaining}")
+    st.write("**Targeted Gap Fixes**")
+    for item in builder.get("targeted_gap_fixes", []):
+        with st.expander(item.get("gap_name", "Gap")):
+            st.write(f"**Supported by resume evidence:** {'Yes' if item.get('supported_by_resume_evidence') else 'No'}")
+            evidence_used = item.get("resume_evidence_used", [])
+            st.write("**Evidence used**")
+            if evidence_used:
+                for evidence in evidence_used:
+                    st.write(f"- {evidence}")
+            else:
+                st.write("- No resume-backed evidence found.")
+            st.write("**Rewritten bullets targeting gaps**")
+            if item.get("rewritten_bullet_suggestions"):
+                for suggestion in item.get("rewritten_bullet_suggestions", []):
+                    st.write(f"- {suggestion}")
+            else:
+                st.write("- No ATS-safe rewrite was added.")
+            st.write(f"**Keyword added:** {'Yes' if item.get('keyword_added') else 'No'}")
+            if item.get("not_added_reason"):
+                st.caption(item.get("not_added_reason", ""))
     st.write("**Recruiter-ready bullet rewrites**")
     for bullet in builder.get("recruiter_ready_bullets", []):
         st.write(bullet)
@@ -1843,6 +1906,7 @@ def render_resume_builder_tab() -> None:
         file_name=_optimized_resume_filename(builder.get("optimized_resume_text", ""), "pdf"),
         mime="application/pdf",
     )
+    render_learning_resources_section("resume_builder")
 
 
 def render_cover_letter_tab() -> None:
@@ -2842,6 +2906,13 @@ def render_admin_page() -> None:
         stat5.metric("Average Fit Score", metrics.get("average_fit_score", 0))
         stat6.metric("Unread Messages", metrics.get("open_contact_messages", 0))
 
+        affiliate1, affiliate2, affiliate3, affiliate4, affiliate5 = st.columns(5)
+        affiliate1.metric("Affiliate Clicks", metrics.get("total_affiliate_clicks", 0))
+        affiliate2.metric("Affiliate Clicks (7d)", metrics.get("affiliate_clicks_7d", 0))
+        affiliate3.metric("Affiliate Clicks (30d)", metrics.get("affiliate_clicks_30d", 0))
+        affiliate4.metric("Top Recommendation", metrics.get("top_clicked_recommendation", "") or "None yet")
+        affiliate5.metric("Top Category", metrics.get("top_clicked_category", "") or "None yet")
+
         aux1, aux2 = st.columns(2)
         with aux1:
             st.write("**Business snapshot**")
@@ -2863,6 +2934,19 @@ def render_admin_page() -> None:
         st.write("**Recent feedback**")
         for item in metrics.get("recent_feedback", []):
             st.write(f"- {item.get('created_at', '')} | {item.get('rating', '')} | Analysis {item.get('application_id', 0)}")
+
+        st.write("**Recent affiliate clicks**")
+        affiliate_rows = [
+            {
+                "Date/Time": item.get("clicked_at", ""),
+                "User Email": item.get("user_email", ""),
+                "Recommendation": item.get("recommendation_name", ""),
+                "Category": item.get("recommendation_category", ""),
+                "Provider": item.get("provider", ""),
+            }
+            for item in metrics.get("recent_affiliate_clicks", [])
+        ]
+        st.dataframe(affiliate_rows, use_container_width=True, hide_index=True)
 
     with messages_tab:
         st.write("**Contact Messages**")
@@ -3029,7 +3113,6 @@ def main() -> None:
         f"pid={os.getpid()} url={app_status.get('url') or 'terminal-reported'}"
     )
     logger.info("App booted. version=%s pid=%s", APP_VERSION, os.getpid())
-    _log_request_host_diagnostics()
 
     try:
         requested_view = _current_view()
