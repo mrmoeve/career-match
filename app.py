@@ -77,7 +77,8 @@ SEO_VIEWS = {"ats-checker", "resume-builder", "interview-prep", "cover-letter-ge
 VALID_VIEWS = {"home", "auth", "app", "contact", "privacy", "terms", "pro", "admin", *SEO_VIEWS}
 BASE_APP_PAGES = ["Dashboard", "Workflow", "Analysis History", "My Resumes", "Pro", "Subscription", "Contact", "Privacy Policy", "Terms", "User Profile"]
 ADMIN_VIEW = "admin"
-DEFAULT_ADMIN_EMAILS = {"mrmoeve@gmail.com"}
+DEFAULT_ADMIN_EMAILS = {"mrmoeve@gmail.com", "talisa.salvador@gmail.com"}
+PRODUCTION_ALLOWED_HOSTS = "localhost,127.0.0.1,career-match-w54c.onrender.com,*.onrender.com"
 
 
 st.set_page_config(
@@ -93,6 +94,11 @@ EXPORT_DIR.mkdir(exist_ok=True)
 LOG_DIR = BASE_DIR / "logs"
 logger = configure_logging(LOG_DIR)
 init_monitoring()
+logger.info(
+    "Startup host policy configured. allowed_hosts=%s app_env=%s validation_result=startup",
+    PRODUCTION_ALLOWED_HOSTS,
+    os.getenv("APP_ENV", "production").strip().lower(),
+)
 
 
 def _detect_local_app_status() -> dict:
@@ -153,7 +159,7 @@ def _log_request_host_diagnostics() -> None:
         headers = {}
 
     request_host = headers.get("X-Request-Host") or headers.get("X-Forwarded-Host") or headers.get("Host") or "unknown"
-    allowed_hosts = headers.get("X-Allowed-Hosts", "localhost,127.0.0.1,career-match-w54c.onrender.com,*.onrender.com")
+    allowed_hosts = headers.get("X-Allowed-Hosts", PRODUCTION_ALLOWED_HOSTS)
     validation_result = headers.get("X-Host-Validation-Result", "unknown")
     logger.info(
         "Host validation diagnostics. request_host=%s allowed_hosts=%s result=%s",
@@ -163,9 +169,17 @@ def _log_request_host_diagnostics() -> None:
     )
 
 
+def is_debug_visible() -> bool:
+    app_env = os.getenv("APP_ENV", "production").strip().lower()
+    return app_env == "development" or _user_is_admin()
+
+
 def render_diagnostics_footer(app_status: dict) -> None:
+    if not is_debug_visible():
+        return
     db_diag = get_database_diagnostics()
     email_diag = get_email_diagnostics()
+    admin_details = _admin_auth_details()
     st.divider()
     with st.expander("Diagnostics"):
         st.write(f"**App Version:** {APP_VERSION}")
@@ -173,6 +187,9 @@ def render_diagnostics_footer(app_status: dict) -> None:
         st.write(f"**Local URL:** {app_status.get('url') or 'Use the URL printed in the terminal for this running instance.'}")
         st.write(f"**Process ID:** {os.getpid()}")
         st.write(f"**Database Engine:** {db_diag.get('engine', 'unknown').title()} ({db_diag.get('target', 'n/a')})")
+        st.write(f"**Current User Email:** {admin_details.get('email') or 'anonymous'}")
+        st.write(f"**is_admin:** {admin_details.get('is_admin_flag', False)}")
+        st.write(f"**Admin Authorized:** {admin_details.get('authorized', False)}")
         st.write(f"**Email Service:** {'Configured' if email_diag.get('configured') else 'Email not configured'}")
         if app_status.get("warning"):
             st.write(f"**Port Check:** {app_status['warning']}")
@@ -629,8 +646,21 @@ def _rate_limit_allows_analysis() -> bool:
     return True
 
 
+def _admin_test_mode_enabled() -> bool:
+    return bool(_user_is_admin() and st.session_state.get("admin_test_mode", True))
+
+
+def _ensure_admin_test_mode_for_admin() -> bool:
+    if _user_is_admin():
+        st.session_state["admin_test_mode"] = True
+        return True
+    return False
+
+
 def _record_successful_assessment() -> None:
     if not st.session_state.get("is_authenticated"):
+        return
+    if _admin_test_mode_enabled():
         return
     access = _assessment_access()
     email = st.session_state.get("user_email", "")
@@ -643,12 +673,24 @@ def _record_successful_assessment() -> None:
 
 
 def _current_payment_type_used() -> str:
+    if _admin_test_mode_enabled():
+        return "admin_test"
     access = _assessment_access()
     if access.get("is_pro"):
         return "pro"
     if access.get("credits", 0) > 0:
         return "credit"
     return "free"
+
+
+def _payment_type_label(value: str) -> str:
+    mapping = {
+        "free": "Free",
+        "credit": "Credit",
+        "pro": "Pro",
+        "admin_test": "Admin Test",
+    }
+    return mapping.get((value or "").strip().lower(), (value or "free").replace("_", " ").title())
 
 
 def _send_to_pro_page() -> None:
@@ -707,6 +749,8 @@ def _open_billing_portal() -> None:
 def _can_run_analysis() -> tuple[bool, str]:
     if not st.session_state.get("is_authenticated"):
         return False, "Sign in to start an analysis."
+    if _admin_test_mode_enabled():
+        return True, ""
     access = _assessment_access()
     if access.get("is_pro"):
         return True, ""
@@ -1052,6 +1096,7 @@ def init_state() -> None:
         "last_checkout_exception": "",
         "session_id": "",
         "page_view_tracker": {},
+        "admin_test_mode": True,
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
@@ -1089,6 +1134,7 @@ def _save_current_application() -> None:
         job_description_text=st.session_state.get("job_text", ""),
         ats_score=int(analysis.get("ats_score", 0)),
         payment_type_used=_current_payment_type_used(),
+        is_admin_test=1 if _admin_test_mode_enabled() else 0,
         payload_json=json.dumps(_application_payload(), ensure_ascii=True),
     )
     application_id = save_application(record)
@@ -1334,9 +1380,18 @@ def render_upload_tab() -> None:
     st.divider()
 
     can_run = bool(st.session_state["resume_text"].strip() and st.session_state["job_text"].strip())
-    access = _assessment_access()
+    admin_active = _ensure_admin_test_mode_for_admin()
     analysis_allowed, block_reason = _can_run_analysis()
-    if st.session_state.get("is_authenticated") and block_reason == "paywall":
+    if admin_active:
+        st.info("Admin test mode active. This run will not consume credits or require payment.")
+        admin_test_value = st.toggle(
+            "Run as admin test",
+            value=True,
+            help="Admin-only support mode. Runs are saved as admin tests and do not consume user billing access.",
+            disabled=True,
+        )
+        st.session_state["admin_test_mode"] = bool(admin_test_value)
+    if st.session_state.get("is_authenticated") and block_reason == "paywall" and not admin_active:
         st.warning("You’ve used your free Career Match assessment.")
         st.caption("Upgrade to Career Match Pro or buy one more assessment to continue. Your previous results remain available.")
         if st.button("View Upgrade Options", type="primary", use_container_width=True):
@@ -1350,7 +1405,14 @@ def render_upload_tab() -> None:
             st.error("Please wait a moment before starting another analysis.")
             return
         try:
-            logger.info("Starting analysis workflow.")
+            logger.info(
+                "Starting analysis workflow. current_user_email=%s is_admin=%s admin_test_mode=%s paywall_bypassed=%s payment_type_used=%s",
+                st.session_state.get("user_email", ""),
+                _user_is_admin(),
+                _admin_test_mode_enabled(),
+                admin_active,
+                _current_payment_type_used(),
+            )
             with st.spinner("Comparing resume to the job description..."):
                 analysis = compare_resume_to_job(
                     st.session_state["resume_text"],
@@ -1384,7 +1446,14 @@ def render_upload_tab() -> None:
 
             _save_current_application()
             _record_successful_assessment()
-            logger.info("Analysis workflow completed successfully.")
+            logger.info(
+                "Analysis workflow completed successfully. current_user_email=%s is_admin=%s admin_test_mode=%s paywall_bypassed=%s payment_type_used=%s",
+                st.session_state.get("user_email", ""),
+                _user_is_admin(),
+                _admin_test_mode_enabled(),
+                admin_active,
+                _current_payment_type_used(),
+            )
             st.success("Analysis and tailored outputs are ready in the other tabs.")
         except Exception as exc:
             logger.exception("Unable to generate materials.")
@@ -2008,7 +2077,7 @@ def render_export_tab() -> None:
 
     for item in applications:
         st.write(
-            f"- {item['created_at']} | {item['job_title']} at {item['company_name']} | ATS {item['ats_score']} | {item.get('payment_type_used', 'free').title()}"
+            f"- {item['created_at']} | {item['job_title']} at {item['company_name']} | ATS {item['ats_score']} | {_payment_type_label(item.get('payment_type_used', 'free'))}"
         )
 
 
@@ -2281,7 +2350,7 @@ def render_dashboard_page() -> None:
                 f"""
                 <div class="page-card">
                   <strong>{item.get('job_title', 'Role')}</strong> at {item.get('company_name', 'Company')}<br/>
-                  <span style="color:#475569;">{item.get('created_at', '')} | {item.get('job_location', 'Location not provided')} | Fit {item.get('ats_score', 0)}/100 | {item.get('payment_type_used', 'free').title()}</span>
+                  <span style="color:#475569;">{item.get('created_at', '')} | {item.get('job_location', 'Location not provided')} | Fit {item.get('ats_score', 0)}/100 | {_payment_type_label(item.get('payment_type_used', 'free'))}</span>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -2339,7 +2408,7 @@ def render_history_page() -> None:
                 "Location": item.get("job_location", ""),
                 "Fit Score": item.get("ats_score", 0),
                 "Recommendation": recommendation,
-                "Payment Type": item.get("payment_type_used", "free").title(),
+                "Payment Type": _payment_type_label(item.get("payment_type_used", "free")),
             }
         )
 
@@ -2379,7 +2448,7 @@ def render_history_page() -> None:
             st.write(f"**Job Title:** {item.get('job_title', '')}")
             st.write(f"**Location:** {item.get('job_location', '')}")
             st.write(f"**Fit Score:** {item.get('ats_score', 0)}/100")
-            st.write(f"**Payment Type Used:** {item.get('payment_type_used', 'free').title()}")
+            st.write(f"**Payment Type Used:** {_payment_type_label(item.get('payment_type_used', 'free'))}")
             st.write(f"**Direct Match Score:** {analysis.get('direct_match_score', 0) if analysis else 0}/100")
             st.write(f"**Transferable Match Score:** {analysis.get('transferable_match_score', 0) if analysis else 0}/100")
             st.write(f"**Recommendation:** {recommendation}")
@@ -2738,6 +2807,11 @@ def render_admin_page() -> None:
     st.subheader("Admin")
     admin_details = _admin_auth_details()
     st.write(f"**Admin User:** {'true' if admin_details['authorized'] else 'false'}")
+    st.caption(
+        f"Current user email: {admin_details['email'] or 'anonymous'} | "
+        f"is_admin: {str(admin_details['is_admin_flag']).lower()} | "
+        f"authorized: {str(admin_details['authorized']).lower()}"
+    )
     logger.info(
         "Admin authorization check. current_user_email=%s is_admin=%s allowlisted=%s authorized=%s",
         admin_details["email"] or "anonymous",

@@ -40,6 +40,7 @@ class ApplicationRecord:
     job_description_text: str = ""
     ats_score: int = 0
     payment_type_used: str = "free"
+    is_admin_test: int = 0
     payload_json: str = ""
 
 
@@ -246,19 +247,38 @@ def _now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
-def _run_admin_migration_once(conn, email: str = "mrmoeve@gmail.com") -> None:
-    normalized_email = _normalize_email(email)
-    result = _execute(
-        conn,
-        """
-        UPDATE users
-        SET is_admin = 1, updated_at = ?
-        WHERE email = ? AND COALESCE(is_admin, 0) <> 1
-        """,
-        (_now(), normalized_email),
-    )
-    if getattr(result, "rowcount", 0):
-        _logger().info("Admin migration completed for %s", normalized_email)
+def _run_admin_migration_once(conn, emails: list[str] | tuple[str, ...] | set[str] | None = None) -> None:
+    targets = emails or ["mrmoeve@gmail.com"]
+    for email in targets:
+        normalized_email = _normalize_email(email)
+        _logger().info(
+            "Running bootstrap admin migration. engine=%s target_email=%s",
+            _database_engine(),
+            normalized_email,
+        )
+        result = _execute(
+            conn,
+            """
+            UPDATE users
+            SET is_admin = 1, updated_at = ?
+            WHERE email = ? AND COALESCE(is_admin, 0) <> 1
+            """,
+            (_now(), normalized_email),
+        )
+        if getattr(result, "rowcount", 0):
+            _logger().info("Admin migration completed for %s", normalized_email)
+        current_row = _fetchone_dict(
+            conn,
+            "SELECT email, COALESCE(is_admin, 0) AS is_admin FROM users WHERE email = ?",
+            (normalized_email,),
+        )
+        _logger().info(
+            "Bootstrap admin verification. engine=%s email=%s is_admin=%s found=%s",
+            _database_engine(),
+            normalized_email,
+            (current_row or {}).get("is_admin", 0),
+            bool(current_row),
+        )
 
 
 def _hash_password(password: str) -> str:
@@ -439,6 +459,7 @@ def init_db() -> None:
                     job_description_text TEXT NOT NULL,
                     ats_score INTEGER NOT NULL,
                     payment_type_used TEXT NOT NULL DEFAULT 'free',
+                    is_admin_test INTEGER NOT NULL DEFAULT 0,
                     payload_json TEXT NOT NULL
                 )
                 """,
@@ -587,6 +608,7 @@ def init_db() -> None:
                     job_description_text TEXT NOT NULL,
                     ats_score INTEGER NOT NULL,
                     payment_type_used TEXT NOT NULL DEFAULT 'free',
+                    is_admin_test INTEGER NOT NULL DEFAULT 0,
                     payload_json TEXT NOT NULL
                 )
                 """,
@@ -629,7 +651,8 @@ def init_db() -> None:
         _add_column_if_missing(conn, "applications", "job_date_posted", "job_date_posted TEXT NOT NULL DEFAULT ''")
         _add_column_if_missing(conn, "applications", "job_category", "job_category TEXT NOT NULL DEFAULT ''")
         _add_column_if_missing(conn, "applications", "payment_type_used", "payment_type_used TEXT NOT NULL DEFAULT 'free'")
-        _run_admin_migration_once(conn, "mrmoeve@gmail.com")
+        _add_column_if_missing(conn, "applications", "is_admin_test", "is_admin_test INTEGER NOT NULL DEFAULT 0")
+        _run_admin_migration_once(conn, ["mrmoeve@gmail.com", "talisa.salvador@gmail.com"])
         conn.commit()
     finally:
         conn.close()
@@ -1079,9 +1102,9 @@ def save_application(record: ApplicationRecord) -> int:
                 user_email, created_at, original_resume_text, optimized_resume_text,
                 original_ats_score, optimized_ats_score, company_name, job_title, job_url,
                 job_location, job_date_posted, job_category, resume_text, job_description_text,
-                ats_score, payment_type_used, payload_json
+                ats_score, payment_type_used, is_admin_test, payload_json
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 getattr(record, "user_email", ""),
@@ -1100,6 +1123,7 @@ def save_application(record: ApplicationRecord) -> int:
                 record.job_description_text,
                 record.ats_score,
                 getattr(record, "payment_type_used", "free"),
+                int(getattr(record, "is_admin_test", 0) or 0),
                 record.payload_json,
             ),
             "id",
@@ -1119,7 +1143,7 @@ def list_applications(limit: int = 20, user_email: str = "") -> list[dict]:
                 conn,
                 """
                 SELECT id, user_email, created_at, company_name, job_title, job_url, job_location, job_date_posted, job_category,
-                       ats_score, original_ats_score, optimized_ats_score, payment_type_used, payload_json
+                       ats_score, original_ats_score, optimized_ats_score, payment_type_used, is_admin_test, payload_json
                 FROM applications
                 WHERE user_email = ?
                 ORDER BY id DESC
@@ -1131,7 +1155,7 @@ def list_applications(limit: int = 20, user_email: str = "") -> list[dict]:
             conn,
             """
             SELECT id, user_email, created_at, company_name, job_title, job_url, job_location, job_date_posted, job_category,
-                   ats_score, original_ats_score, optimized_ats_score, payment_type_used, payload_json
+                   ats_score, original_ats_score, optimized_ats_score, payment_type_used, is_admin_test, payload_json
             FROM applications
             ORDER BY id DESC
             LIMIT ?
@@ -1392,8 +1416,9 @@ def admin_metrics() -> dict:
             "pro_users": pro_users,
             "registrations": total_users,
             "total_analyses": int(_scalar(conn, "SELECT COUNT(*) FROM applications", default=0) or 0),
-            "completed_assessments": int(_scalar(conn, "SELECT COUNT(*) FROM applications", default=0) or 0),
+            "completed_assessments": int(_scalar(conn, "SELECT COUNT(*) FROM applications WHERE COALESCE(is_admin_test, 0) = 0", default=0) or 0),
             "paid_assessments": int(_scalar(conn, "SELECT COUNT(*) FROM applications WHERE payment_type_used = 'credit'", default=0) or 0),
+            "admin_test_analyses": int(_scalar(conn, "SELECT COUNT(*) FROM applications WHERE COALESCE(is_admin_test, 0) = 1", default=0) or 0),
             "page_views": int(_scalar(conn, "SELECT COUNT(*) FROM page_views", default=0) or 0),
             "total_contact_messages": int(_scalar(conn, "SELECT COUNT(*) FROM contact_messages", default=0) or 0),
             "open_contact_messages": int(
