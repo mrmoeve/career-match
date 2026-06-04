@@ -17,6 +17,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+RUN mkdir -p /app/logs
+
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
@@ -24,4 +26,4 @@ COPY . .
 
 EXPOSE 10000
 
-CMD ["/usr/bin/supervisord", "-c", "/app/deploy/supervisord.conf"]
+CMD ["sh", "-c", "mkdir -p /app/logs && exec /usr/bin/supervisord -c /app/deploy/supervisord.conf"]
