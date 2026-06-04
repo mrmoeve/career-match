@@ -1,3 +1,6 @@
+import hashlib
+import hmac
+import os
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,9 +28,27 @@ class ApplicationRecord:
     payload_json: str = ""
 
 
+@dataclass
+class UserRecord:
+    id: int = 0
+    created_at: str = ""
+    email: str = ""
+    password_hash: str = ""
+
+
 def init_db() -> None:
     conn = sqlite3.connect(DB_PATH)
     try:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL
+            )
+            """
+        )
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS applications (
@@ -71,6 +92,86 @@ def init_db() -> None:
         if "job_category" not in columns:
             conn.execute("ALTER TABLE applications ADD COLUMN job_category TEXT NOT NULL DEFAULT ''")
         conn.commit()
+    finally:
+        conn.close()
+
+
+def _normalize_email(email: str) -> str:
+    return (email or "").strip().lower()
+
+
+def _hash_password(password: str) -> str:
+    salt = os.urandom(16)
+    iterations = 200_000
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
+    return f"{iterations}${salt.hex()}${digest.hex()}"
+
+
+def _verify_password(password: str, password_hash: str) -> bool:
+    try:
+        iterations_str, salt_hex, digest_hex = password_hash.split("$", 2)
+        iterations = int(iterations_str)
+        salt = bytes.fromhex(salt_hex)
+        expected_digest = bytes.fromhex(digest_hex)
+    except (TypeError, ValueError):
+        return False
+
+    candidate_digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt,
+        iterations,
+    )
+    return hmac.compare_digest(candidate_digest, expected_digest)
+
+
+def create_user(created_at: str, email: str, password: str) -> tuple[bool, str]:
+    normalized_email = _normalize_email(email)
+    if not normalized_email:
+        return False, "Enter an email address."
+    if len(password or "") < 8:
+        return False, "Use a password with at least 8 characters."
+
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        existing = conn.execute(
+            "SELECT id FROM users WHERE email = ?",
+            (normalized_email,),
+        ).fetchone()
+        if existing:
+            return False, "An account with that email already exists."
+
+        conn.execute(
+            """
+            INSERT INTO users (created_at, email, password_hash)
+            VALUES (?, ?, ?)
+            """,
+            (created_at, normalized_email, _hash_password(password)),
+        )
+        conn.commit()
+        return True, normalized_email
+    finally:
+        conn.close()
+
+
+def authenticate_user(email: str, password: str) -> tuple[bool, str]:
+    normalized_email = _normalize_email(email)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute(
+            """
+            SELECT id, created_at, email, password_hash
+            FROM users
+            WHERE email = ?
+            """,
+            (normalized_email,),
+        ).fetchone()
+        if not row:
+            return False, "We couldn't find an account with that email."
+        if not _verify_password(password, row["password_hash"]):
+            return False, "The password you entered is incorrect."
+        return True, row["email"]
     finally:
         conn.close()
 

@@ -6,7 +6,14 @@ from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
-from database.db import ApplicationRecord, init_db, list_applications, save_application
+from database.db import (
+    ApplicationRecord,
+    authenticate_user,
+    create_user,
+    init_db,
+    list_applications,
+    save_application,
+)
 from prompts.templates import APP_DISCLAIMER
 from services.analysis_service import compare_resume_to_job
 from services.export_service import (
@@ -25,6 +32,7 @@ from services.text_extractor import extract_text_from_upload
 APP_VERSION = "v0.4.0-quality"
 APP_NAME = "Career Match"
 BUILD_TIMESTAMP = datetime.fromtimestamp(Path(__file__).stat().st_mtime).isoformat(sep=" ", timespec="seconds")
+VALID_VIEWS = {"home", "auth", "app"}
 
 
 st.set_page_config(
@@ -140,6 +148,133 @@ def inject_pwa_support() -> None:
         </script>
         """,
     )
+
+
+def inject_theme_overrides() -> None:
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stAppViewContainer"] {
+            background:
+                radial-gradient(circle at top right, rgba(59, 130, 246, 0.10), transparent 28%),
+                linear-gradient(180deg, #f8fbff 0%, #f6f9fc 100%);
+        }
+        div[data-testid="stHorizontalBlock"] div[data-testid="stMetric"] {
+            background: #ffffff;
+            border: 1px solid #dbeafe;
+            border-radius: 18px;
+            padding: 0.75rem 1rem;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+        }
+        div.stButton > button,
+        div.stDownloadButton > button {
+            border-radius: 999px;
+            border: 1px solid #2563eb;
+            background: linear-gradient(135deg, #2563eb 0%, #38bdf8 100%);
+            color: #ffffff;
+            font-weight: 600;
+            box-shadow: 0 10px 28px rgba(37, 99, 235, 0.18);
+        }
+        div.stButton > button[kind="secondary"],
+        div.stDownloadButton > button[kind="secondary"] {
+            background: #ffffff;
+            color: #1d4ed8;
+        }
+        div[data-baseweb="tab-list"] {
+            gap: 0.3rem;
+        }
+        button[data-baseweb="tab"] {
+            border-radius: 999px;
+            border: 1px solid #dbeafe;
+            background: #eff6ff;
+            color: #1e3a8a;
+            padding: 0.45rem 0.95rem;
+        }
+        button[data-baseweb="tab"][aria-selected="true"] {
+            background: linear-gradient(135deg, #1d4ed8 0%, #38bdf8 100%);
+            color: #ffffff;
+            border-color: #1d4ed8;
+        }
+        div[data-testid="stVerticalBlock"] div[data-testid="stExpander"] {
+            border: 1px solid #dbeafe;
+            border-radius: 16px;
+            background: #ffffff;
+        }
+        .app-header-card {
+            background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 68%, #38bdf8 100%);
+            border-radius: 24px;
+            padding: 1.25rem 1.4rem;
+            color: #f8fafc;
+            margin-bottom: 1rem;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+        }
+        .app-header-card h1 {
+            margin: 0;
+            color: #ffffff;
+            font-size: 2.2rem;
+        }
+        .app-header-card p {
+            margin: 0.45rem 0 0 0;
+            color: rgba(248, 250, 252, 0.92);
+        }
+        .auth-shell {
+            padding: 1.5rem 0 0.5rem 0;
+        }
+        .auth-hero {
+            background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 58%, #38bdf8 100%);
+            border-radius: 28px;
+            padding: 2.4rem;
+            color: #f8fafc;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.2);
+            margin-bottom: 1.2rem;
+        }
+        .auth-panel {
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid #dbeafe;
+            border-radius: 24px;
+            padding: 1rem;
+            box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _normalize_view(value: str) -> str:
+    return value if value in VALID_VIEWS else "home"
+
+
+def _current_view() -> str:
+    view_value = st.query_params.get("view", st.session_state.get("current_view", "home"))
+    if isinstance(view_value, list):
+        view_value = view_value[0] if view_value else "home"
+    return _normalize_view(str(view_value))
+
+
+def _set_view(view: str) -> None:
+    normalized = _normalize_view(view)
+    st.session_state["current_view"] = normalized
+    if normalized == "home":
+        try:
+            st.query_params.clear()
+        except Exception:
+            st.query_params["view"] = normalized
+    else:
+        st.query_params["view"] = normalized
+
+
+def _log_in_user(email: str) -> None:
+    st.session_state["is_authenticated"] = True
+    st.session_state["user_email"] = (email or "").strip().lower()
+    _set_view("app")
+
+
+def _log_out_user() -> None:
+    st.session_state["is_authenticated"] = False
+    st.session_state["user_email"] = ""
+    st.session_state["auth_notice"] = "You have been logged out."
+    _set_view("home")
 
 
 def render_landing_page() -> None:
@@ -299,7 +434,11 @@ def render_landing_page() -> None:
     cta_col = st.columns([1, 1, 1])[1]
     with cta_col:
         if st.button("Start Free Analysis", type="primary", use_container_width=True):
-            st.session_state["entered_app"] = True
+            if st.session_state.get("is_authenticated"):
+                _set_view("app")
+            else:
+                st.session_state["auth_mode"] = "register"
+                _set_view("auth")
             st.rerun()
 
     st.markdown("## Privacy Policy")
@@ -343,7 +482,11 @@ def init_state() -> None:
         "generated": None,
         "application_saved": False,
         "demo_mode": is_demo_mode_api_key(),
-        "entered_app": False,
+        "current_view": "home",
+        "auth_mode": "login",
+        "auth_notice": "",
+        "is_authenticated": False,
+        "user_email": "",
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
@@ -1080,6 +1223,103 @@ def render_evidence_tab() -> None:
             st.write(f"**Evidence Type:** {item.get('evidence_type', '').title()}")
 
 
+def render_auth_page() -> None:
+    st.markdown(
+        """
+        <div class="auth-shell">
+          <div class="auth-hero">
+            <div class="eyebrow">Career Match</div>
+            <h1 class="hero-title" style="margin-bottom:0.75rem;">Start your analysis</h1>
+            <p class="hero-copy" style="margin-bottom:0;">Create an account or sign in to unlock resume matching, interview prep, and evidence-backed guidance.</p>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    notice = st.session_state.get("auth_notice", "")
+    if notice:
+        st.info(notice)
+        st.session_state["auth_notice"] = ""
+
+    st.markdown(
+        "<div class='auth-panel'>",
+        unsafe_allow_html=True,
+    )
+    login_tab, register_tab = st.tabs(["Log In", "Register"])
+
+    with login_tab:
+        with st.form("login_form", clear_on_submit=False):
+            email = st.text_input("Email", key="login_email")
+            password = st.text_input("Password", type="password", key="login_password")
+            submitted = st.form_submit_button("Log In", use_container_width=True)
+        if submitted:
+            success, result = authenticate_user(email, password)
+            if success:
+                _log_in_user(result)
+                st.rerun()
+            st.error(result)
+
+    with register_tab:
+        with st.form("register_form", clear_on_submit=False):
+            email = st.text_input("Email", key="register_email")
+            password = st.text_input("Password", type="password", key="register_password")
+            confirm_password = st.text_input("Confirm Password", type="password", key="register_confirm_password")
+            submitted = st.form_submit_button("Create Account", use_container_width=True)
+        if submitted:
+            if password != confirm_password:
+                st.error("Passwords must match before we can create your account.")
+            else:
+                success, result = create_user(
+                    created_at=datetime.now().isoformat(timespec="seconds"),
+                    email=email,
+                    password=password,
+                )
+                if success:
+                    _log_in_user(result)
+                    st.rerun()
+                st.error(result)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    helper_left, helper_right = st.columns([1, 1])
+    with helper_left:
+        if st.button("Back to Home", use_container_width=True):
+            _set_view("home")
+            st.rerun()
+    with helper_right:
+        st.caption("Use the same email and password next time to continue from the app workflow.")
+
+
+def render_app_header() -> None:
+    header_left, header_middle, header_right = st.columns([5, 2, 2])
+    with header_left:
+        st.markdown(
+            f"""
+            <div class="app-header-card">
+              <h1>{APP_NAME}</h1>
+              <p>Match your resume to any job and understand exactly where you stand.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with header_middle:
+        st.write("")
+        st.write("")
+        if st.button("Home", use_container_width=True):
+            _set_view("home")
+            st.rerun()
+    with header_right:
+        st.write("")
+        st.write("")
+        if st.button("Log Out", use_container_width=True):
+            _log_out_user()
+            st.rerun()
+
+    user_email = st.session_state.get("user_email", "")
+    if user_email:
+        st.caption(f"Signed in as {user_email}")
+
+
 def render_application_shell() -> None:
     tabs = st.tabs(
         [
@@ -1126,6 +1366,7 @@ def main() -> None:
     init_state()
     app_status = _detect_local_app_status()
     inject_pwa_support()
+    inject_theme_overrides()
     print(
         f"[{APP_NAME}] version={APP_VERSION} build={BUILD_TIMESTAMP} "
         f"pid={os.getpid()} url={app_status.get('url') or 'terminal-reported'}"
@@ -1133,11 +1374,20 @@ def main() -> None:
     logger.info("App booted. version=%s pid=%s", APP_VERSION, os.getpid())
 
     try:
-        if not st.session_state.get("entered_app"):
-            render_landing_page()
+        requested_view = _current_view()
+        if requested_view == "app" and not st.session_state.get("is_authenticated"):
+            st.session_state["auth_notice"] = "Create an account or sign in to continue to the app."
+            requested_view = "auth"
+            _set_view("auth")
         else:
-            st.title(APP_NAME)
-            st.caption("Match your resume to any job and understand exactly where you stand.")
+            st.session_state["current_view"] = requested_view
+
+        if requested_view == "home":
+            render_landing_page()
+        elif requested_view == "auth":
+            render_auth_page()
+        else:
+            render_app_header()
             render_application_shell()
         render_diagnostics_footer(app_status)
     except Exception:

@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+from uuid import uuid4
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -29,7 +30,18 @@ def main() -> None:
     start_button.click()
     at.run()
 
-    print("entered_app", at.session_state["entered_app"])
+    print("auth_view_visible", any(tab.label == "Log In" for tab in at.tabs) and any(tab.label == "Register" for tab in at.tabs))
+
+    email = f"career-match-{uuid4().hex[:8]}@example.com"
+    inputs_by_key = {item.key: item for item in at.text_input}
+    inputs_by_key["register_email"].set_value(email)
+    inputs_by_key["register_password"].set_value("CareerMatch123")
+    inputs_by_key["register_confirm_password"].set_value("CareerMatch123")
+    next(button for button in at.button if button.label == "Create Account").click()
+    at.run()
+
+    print("registered_user", at.session_state["user_email"])
+    print("is_authenticated", at.session_state["is_authenticated"])
     print("has_upload_tab", any(tab.label == "Upload" for tab in at.tabs))
 
     at.file_uploader[0].set_value((resume_path.name, resume_path.read_bytes(), "text/plain"))
@@ -51,6 +63,22 @@ def main() -> None:
     print("role_family", at.session_state["analysis"]["role_family"])
     print("trust_score", at.session_state["generated"]["resume_builder"]["trust_score"])
     print("exception_count", len(at.exception))
+
+    next(button for button in at.button if button.label == "Home").click()
+    at.run()
+    print("home_button_returns_landing", "Match your resume to any job and understand exactly where you stand." in "".join(str(item.value) for item in at.markdown))
+
+    at.session_state["current_view"] = "app"
+    at.run()
+    print("authenticated_user_can_reenter_app", any(tab.label == "Upload" for tab in at.tabs))
+
+    next(button for button in at.button if button.label == "Log Out").click()
+    at.run()
+    print("logout_returns_home", at.session_state["is_authenticated"] is False and "Match your resume to any job and understand exactly where you stand." in "".join(str(item.value) for item in at.markdown))
+
+    at.session_state["current_view"] = "app"
+    at.run()
+    print("logged_out_app_access_blocked", any(tab.label == "Log In" for tab in at.tabs))
 
     analysis = compare_resume_to_job(resume_text, job_text)
     builder = build_optimized_resume_package(resume_text, job_text, analysis, {"professional_summary": "", "tailored_resume_bullets": []})
