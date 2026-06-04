@@ -396,6 +396,7 @@ def _resolve_user_from_payload(payload: dict) -> dict | None:
 def _apply_checkout_completed(payload: dict) -> dict:
     user = _resolve_user_from_payload(payload)
     if not user:
+        logger.warning("Stripe webhook checkout.session.completed could not match a user.")
         return {"ok": False, "message": "User not found for checkout session."}
     user_email = user.get("email", "")
     user_id = int(user.get("id", 0))
@@ -422,6 +423,7 @@ def _apply_checkout_completed(payload: dict) -> dict:
 
     if product_type == "one_time_assessment":
         add_assessment_credits(user_email, 1)
+        logger.info("Stripe webhook applied one-time assessment credit. user_email=%s session_id=%s", user_email, session_id)
         return {"ok": True, "message": "Assessment credit added."}
 
     if product_type == "pro_monthly":
@@ -434,6 +436,13 @@ def _apply_checkout_completed(payload: dict) -> dict:
             subscription_start=start,
             subscription_end=end,
         )
+        logger.info(
+            "Stripe webhook activated Pro subscription. user_email=%s customer_id=%s subscription_id=%s period_end=%s",
+            user_email,
+            customer_id,
+            subscription_id,
+            end,
+        )
         return {"ok": True, "message": "Pro subscription activated."}
 
     return {"ok": True, "message": "Checkout completed."}
@@ -442,6 +451,7 @@ def _apply_checkout_completed(payload: dict) -> dict:
 def _apply_subscription_update(payload: dict, deleted: bool = False) -> dict:
     user = _resolve_user_from_payload(payload)
     if not user:
+        logger.warning("Stripe subscription webhook could not match a user. deleted=%s", deleted)
         return {"ok": False, "message": "User not found for subscription event."}
     user_email = user.get("email", "")
     customer_id = payload.get("stripe_customer_id") or payload.get("customer") or ""
@@ -457,6 +467,7 @@ def _apply_subscription_update(payload: dict, deleted: bool = False) -> dict:
             subscription_start="",
             subscription_end=_from_unix(payload.get("ended_at") or payload.get("current_period_end")),
         )
+        logger.info("Stripe webhook removed Pro access after cancellation. user_email=%s subscription_id=%s", user_email, subscription_id)
         return {"ok": True, "message": "Subscription canceled."}
 
     status = (payload.get("subscription_status") or payload.get("status") or "active").strip().lower()
@@ -468,6 +479,13 @@ def _apply_subscription_update(payload: dict, deleted: bool = False) -> dict:
         subscription_plan=mapped_plan,
         subscription_start=_from_unix(payload.get("current_period_start")),
         subscription_end=_from_unix(payload.get("current_period_end")),
+    )
+    logger.info(
+        "Stripe webhook updated subscription status. user_email=%s subscription_id=%s status=%s plan=%s",
+        user_email,
+        subscription_id,
+        mapped_status,
+        mapped_plan,
     )
     return {"ok": True, "message": "Subscription updated."}
 
@@ -508,7 +526,9 @@ def process_webhook_request(payload: bytes, signature: str) -> tuple[dict, int]:
     try:
         _configure_stripe()
         event = stripe.Webhook.construct_event(payload, signature, _webhook_secret())
+        logger.info("Stripe webhook event received. event_type=%s", event.get("type", "unknown"))
         result = process_stripe_event(event)
         return result, 200 if result.get("ok") else 400
     except Exception as exc:
+        logger.exception("Stripe webhook verification failed.")
         return {"ok": False, "message": f"Webhook verification failed: {exc}"}, 400

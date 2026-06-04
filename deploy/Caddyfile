@@ -1,6 +1,12 @@
 :10000 {
     encode gzip zstd
 
+    redir /ats-checker /?view=ats-checker 302
+    redir /resume-builder /?view=resume-builder 302
+    redir /interview-prep /?view=interview-prep 302
+    redir /cover-letter-generator /?view=cover-letter-generator 302
+    redir /linkedin-message-generator /?view=linkedin-message-generator 302
+
     @pwa path /manifest.webmanifest /sw.js /icon-192.png /icon-512.png /apple-touch-icon.png /favicon.png /offline.html
     handle @pwa {
         root * /app/static

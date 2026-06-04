@@ -22,6 +22,7 @@ from database.db import (
     delete_saved_resume,
     get_dashboard_metrics,
     get_assessment_access,
+    get_database_diagnostics,
     get_saved_resume,
     get_user_id,
     get_user_profile,
@@ -47,6 +48,7 @@ from services.export_service import (
     build_optimized_resume_docx,
     build_optimized_resume_pdf,
 )
+from services.email_service import build_results_summary_email, email_configured, get_email_diagnostics, send_email_message
 from services.job_url_service import JobExtractionError, fetch_job_posting_from_url
 from services.billing_service import (
     cancel_subscription,
@@ -66,7 +68,8 @@ from services.text_extractor import extract_text_from_upload
 APP_VERSION = "v0.4.0-quality"
 APP_NAME = "Career Match"
 BUILD_TIMESTAMP = datetime.fromtimestamp(Path(__file__).stat().st_mtime).isoformat(sep=" ", timespec="seconds")
-VALID_VIEWS = {"home", "auth", "app", "contact", "privacy", "terms", "pro", "admin"}
+SEO_VIEWS = {"ats-checker", "resume-builder", "interview-prep", "cover-letter-generator", "linkedin-message-generator"}
+VALID_VIEWS = {"home", "auth", "app", "contact", "privacy", "terms", "pro", "admin", *SEO_VIEWS}
 APP_PAGES = ["Dashboard", "Workflow", "Analysis History", "My Resumes", "Pro", "Subscription", "Contact", "Privacy Policy", "Terms", "User Profile"]
 ADMIN_VIEW = "admin"
 
@@ -136,12 +139,16 @@ def _detect_local_app_status() -> dict:
 
 
 def render_diagnostics_footer(app_status: dict) -> None:
+    db_diag = get_database_diagnostics()
+    email_diag = get_email_diagnostics()
     st.divider()
     with st.expander("Diagnostics"):
         st.write(f"**App Version:** {APP_VERSION}")
         st.write(f"**Build Timestamp:** {BUILD_TIMESTAMP}")
         st.write(f"**Local URL:** {app_status.get('url') or 'Use the URL printed in the terminal for this running instance.'}")
         st.write(f"**Process ID:** {os.getpid()}")
+        st.write(f"**Database Engine:** {db_diag.get('engine', 'unknown').title()} ({db_diag.get('target', 'n/a')})")
+        st.write(f"**Email Service:** {'Configured' if email_diag.get('configured') else 'Email not configured'}")
         if app_status.get("warning"):
             st.write(f"**Port Check:** {app_status['warning']}")
         elif app_status.get("detail"):
@@ -342,10 +349,7 @@ def _user_is_admin() -> bool:
 
 
 def _email_delivery_configured() -> bool:
-    return all(
-        os.getenv(key, "").strip()
-        for key in ["SMTP_HOST", "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD", "FROM_EMAIL"]
-    )
+    return email_configured()
 
 
 def _rate_limit_allows_analysis() -> bool:
@@ -371,6 +375,15 @@ def _record_successful_assessment() -> None:
         consume_assessment_credit(email)
         return
     increment_free_assessment_usage(email)
+
+
+def _current_payment_type_used() -> str:
+    access = _assessment_access()
+    if access.get("is_pro"):
+        return "pro"
+    if access.get("credits", 0) > 0:
+        return "credit"
+    return "free"
 
 
 def _send_to_pro_page() -> None:
@@ -660,6 +673,80 @@ def render_landing_page() -> None:
             _set_view("pro")
             st.rerun()
 
+    st.markdown("## Explore More")
+    seo_cols = st.columns(5)
+    seo_pages = [
+        ("ATS Checker", "ats-checker"),
+        ("Resume Builder", "resume-builder"),
+        ("Interview Prep", "interview-prep"),
+        ("Cover Letter Generator", "cover-letter-generator"),
+        ("LinkedIn Message Generator", "linkedin-message-generator"),
+    ]
+    for column, (label, view_name) in zip(seo_cols, seo_pages):
+        with column:
+            if st.button(label, key=f"seo_{view_name}", use_container_width=True):
+                _set_view(view_name)
+                st.rerun()
+
+
+def render_seo_page(view_name: str) -> None:
+    page_content = {
+        "ats-checker": (
+            "ATS Resume Checker",
+            "See how well your resume matches a target job before you apply.",
+            "Upload your resume, add a job posting, and Career Match shows ATS alignment, direct fit, transferable fit, and remaining gaps.",
+        ),
+        "resume-builder": (
+            "AI Resume Builder",
+            "Turn your uploaded resume into a clearer, stronger job-targeted version.",
+            "Career Match rewrites your summary and bullets using only resume-backed evidence, then shows ATS before vs after and remaining gaps.",
+        ),
+        "interview-prep": (
+            "Interview Prep Generator",
+            "Prepare faster with recruiter-style interview intelligence.",
+            "Get likely questions, STAR answers, challenge handling, and role-specific talking points tied to your actual resume.",
+        ),
+        "cover-letter-generator": (
+            "Cover Letter Generator",
+            "Generate a role-targeted cover letter from your actual background.",
+            "Career Match references your real employers, accomplishments, and transferable strengths instead of generic filler.",
+        ),
+        "linkedin-message-generator": (
+            "LinkedIn Message Generator",
+            "Create concise recruiter outreach messages tailored to a target job.",
+            "Use your resume and the job posting to generate professional LinkedIn outreach that stays aligned to your real experience.",
+        ),
+    }
+    title, subtitle, body = page_content.get(
+        view_name,
+        ("Career Match", "Match your resume to any job and understand exactly where you stand.", ""),
+    )
+    st.markdown(
+        f"""
+        <div class="landing-shell">
+          <div class="hero-card">
+            <div class="eyebrow">Career Match</div>
+            <h1 class="hero-title">{title}</h1>
+            <p class="hero-copy">{subtitle}</p>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.write(body)
+    st.write("Career Match helps you understand direct fit, transferable fit, interview potential, and the strongest evidence already in your resume.")
+    st.write("Pricing")
+    st.write("- Free: 1 assessment")
+    st.write("- One-Time: $4.99 per additional assessment")
+    st.write("- Pro: $19/month unlimited")
+    if st.button("Start Free Analysis", key=f"cta_{view_name}", type="primary", use_container_width=True):
+        if st.session_state.get("is_authenticated"):
+            _set_view("app")
+        else:
+            st.session_state["auth_mode"] = "register"
+            _set_view("auth")
+        st.rerun()
+
 
 def init_state() -> None:
     defaults = {
@@ -732,6 +819,7 @@ def _save_current_application() -> None:
         resume_text=st.session_state.get("resume_text", ""),
         job_description_text=st.session_state.get("job_text", ""),
         ats_score=int(analysis.get("ats_score", 0)),
+        payment_type_used=_current_payment_type_used(),
         payload_json=json.dumps(_application_payload(), ensure_ascii=True),
     )
     application_id = save_application(record)
@@ -980,6 +1068,10 @@ def render_upload_tab() -> None:
                     analysis=st.session_state["analysis"],
                     generated=generated,
                 )
+                generated["results_summary_email"] = build_results_summary_email(
+                    analysis=st.session_state["analysis"],
+                    generated=generated,
+                )
                 st.session_state["optimized_resume_text"] = generated["resume_builder"]["optimized_resume_text"]
                 st.session_state["generated"] = generated
                 st.session_state["application_saved"] = False
@@ -1221,6 +1313,15 @@ def render_resume_builder_tab() -> None:
     st.write("**Recruiter-ready bullet rewrites**")
     for bullet in builder.get("recruiter_ready_bullets", []):
         st.write(bullet)
+    original_bullets_col, improved_bullets_col = st.columns(2)
+    with original_bullets_col:
+        st.write("**Original bullets**")
+        for item in builder.get("rewritten_bullet_details", []):
+            st.write(f"- {item.get('original_bullet', '')}")
+    with improved_bullets_col:
+        st.write("**Rewritten bullets**")
+        for item in builder.get("rewritten_bullet_details", []):
+            st.write(f"- {item.get('improved_bullet', '')}")
     st.write("**Original vs improved bullets**")
     for index, item in enumerate(builder.get("rewritten_bullet_details", []), start=1):
         with st.expander(f"Bullet {index}"):
@@ -1474,15 +1575,35 @@ def render_export_tab() -> None:
     st.download_button(
         "Download DOCX",
         data=docx_bytes,
-        file_name="finance_career_copilot_export.docx",
+        file_name="career_match_export.docx",
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
     st.download_button(
         "Download PDF",
         data=pdf_bytes,
-        file_name="finance_career_copilot_export.pdf",
+        file_name="career_match_export.pdf",
         mime="application/pdf",
     )
+
+    st.write("**Results summary email**")
+    results_summary_email = generated.get("results_summary_email", "")
+    st.text_area("Analysis summary email template", results_summary_email, height=220)
+    if not email_configured():
+        st.caption("Email not configured. Add SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, and FROM_EMAIL to enable sending later.")
+    else:
+        if st.button("Email Summary to My Account", use_container_width=True):
+            subject_line = "Career Match Results Summary"
+            body_lines = results_summary_email.splitlines()
+            if body_lines and body_lines[0].lower().startswith("subject:"):
+                subject_line = body_lines[0].split(":", 1)[1].strip() or subject_line
+                body_content = "\n".join(body_lines[2:]) if len(body_lines) > 2 else results_summary_email
+            else:
+                body_content = results_summary_email
+            success, message = send_email_message(st.session_state.get("user_email", ""), subject_line, body_content)
+            if success:
+                st.success(message)
+            else:
+                st.error(message)
 
     st.write("**Saved applications**")
     applications = list_applications(limit=10, user_email=st.session_state.get("user_email", ""))
@@ -1492,7 +1613,7 @@ def render_export_tab() -> None:
 
     for item in applications:
         st.write(
-            f"- {item['created_at']} | {item['job_title']} at {item['company_name']} | ATS {item['ats_score']}"
+            f"- {item['created_at']} | {item['job_title']} at {item['company_name']} | ATS {item['ats_score']} | {item.get('payment_type_used', 'free').title()}"
         )
 
 
@@ -1716,6 +1837,8 @@ def render_public_page(view_name: str) -> None:
         render_pro_page()
     elif view_name == "admin":
         render_admin_page()
+    elif view_name in SEO_VIEWS:
+        render_seo_page(view_name)
     else:
         render_landing_page()
 
@@ -1733,12 +1856,14 @@ def render_dashboard_page() -> None:
         "Free Assessments",
         f"{metrics.get('free_assessments_used', 0)}/{metrics.get('free_assessments_limit', 1)} used",
     )
-    col5.metric("Current Plan", str(metrics.get("current_plan", "free")).title())
-    extra1, extra2 = st.columns(2)
+    col5.metric("Current Plan", str(metrics.get("current_plan", "free")))
+    extra1, extra2, extra3, extra4 = st.columns(4)
     extra1.metric("Purchased Credits", metrics.get("assessment_credits", 0))
     extra2.metric("Free Assessments Remaining", metrics.get("free_assessments_remaining", 0))
+    extra3.metric("Subscription Status", str(metrics.get("subscription_status", "free")).title())
+    extra4.metric("Renewal Date", metrics.get("renewal_date", "") or "N/A")
 
-    if metrics.get("current_plan", "free").lower() == "pro":
+    if str(metrics.get("current_plan", "free")).lower() == "pro":
         st.success("Career Match Pro Active")
     elif metrics.get("free_assessments_remaining", 0) > 0:
         st.info(f"You have {metrics.get('free_assessments_remaining', 0)} free assessments remaining.")
@@ -1759,7 +1884,7 @@ def render_dashboard_page() -> None:
                 f"""
                 <div class="page-card">
                   <strong>{item.get('job_title', 'Role')}</strong> at {item.get('company_name', 'Company')}<br/>
-                  <span style="color:#475569;">{item.get('created_at', '')} | Fit {item.get('ats_score', 0)}/100</span>
+                  <span style="color:#475569;">{item.get('created_at', '')} | {item.get('job_location', 'Location not provided')} | Fit {item.get('ats_score', 0)}/100 | {item.get('payment_type_used', 'free').title()}</span>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -1780,6 +1905,49 @@ def render_history_page() -> None:
     recommendation_filter = filter_rec.selectbox("Recommendation", ["All", "Apply Immediately", "Good Stretch Opportunity", "Low Probability Match", "Not Recommended"])
 
     search_term = st.text_input("Search by company, role, or keyword")
+
+    summary_rows = []
+    for item in applications:
+        payload = {}
+        payload_json = item.get("payload_json", "")
+        if payload_json:
+            try:
+                payload = json.loads(payload_json)
+            except json.JSONDecodeError:
+                payload = {}
+        analysis = payload.get("analysis", {})
+        generated = payload.get("generated", {})
+        recommendation = (analysis.get("job_fit", {}) or {}).get("recommendation", "Not available")
+        haystack = " ".join([
+            str(item.get("company_name", "")),
+            str(item.get("job_title", "")),
+            str(item.get("job_location", "")),
+            " ".join(analysis.get("matching_keywords", [])) if analysis else "",
+        ]).lower()
+        if company_filter and company_filter.lower() not in str(item.get("company_name", "")).lower():
+            continue
+        if title_filter and title_filter.lower() not in str(item.get("job_title", "")).lower():
+            continue
+        if int(item.get("ats_score", 0)) < min_score:
+            continue
+        if recommendation_filter != "All" and recommendation != recommendation_filter:
+            continue
+        if search_term and search_term.lower() not in haystack:
+            continue
+        summary_rows.append(
+            {
+                "Date": item.get("created_at", ""),
+                "Company": item.get("company_name", ""),
+                "Job Title": item.get("job_title", ""),
+                "Location": item.get("job_location", ""),
+                "Fit Score": item.get("ats_score", 0),
+                "Recommendation": recommendation,
+                "Payment Type": item.get("payment_type_used", "free").title(),
+            }
+        )
+
+    if summary_rows:
+        st.dataframe(summary_rows, use_container_width=True, hide_index=True)
 
     for item in applications:
         payload = {}
@@ -1814,6 +1982,7 @@ def render_history_page() -> None:
             st.write(f"**Job Title:** {item.get('job_title', '')}")
             st.write(f"**Location:** {item.get('job_location', '')}")
             st.write(f"**Fit Score:** {item.get('ats_score', 0)}/100")
+            st.write(f"**Payment Type Used:** {item.get('payment_type_used', 'free').title()}")
             st.write(f"**Direct Match Score:** {analysis.get('direct_match_score', 0) if analysis else 0}/100")
             st.write(f"**Transferable Match Score:** {analysis.get('transferable_match_score', 0) if analysis else 0}/100")
             st.write(f"**Recommendation:** {recommendation}")

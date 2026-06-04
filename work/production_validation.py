@@ -8,12 +8,19 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from streamlit.testing.v1 import AppTest
 
-from database.db import DB_PATH, get_dashboard_metrics, get_user_profile
+from app import SEO_VIEWS
+from database.db import (
+    count_contact_messages_for_user,
+    count_feedback_for_user,
+    count_saved_resumes_for_user,
+    get_dashboard_metrics,
+    get_user_profile,
+    test_database_connection,
+)
 from services.analysis_service import compare_resume_to_job
 from services.billing_service import handle_webhook_event
 from services.export_service import build_optimized_resume_docx, build_optimized_resume_pdf
 from services.resume_builder_service import build_optimized_resume_package
-import sqlite3
 
 
 def main() -> None:
@@ -21,6 +28,9 @@ def main() -> None:
     job_path = Path("work/test_assets/meltwater_real_job_description.txt")
     resume_text = resume_path.read_text()
     job_text = job_path.read_text()
+    db_ok, db_engine = test_database_connection()
+    print("database_connection_ok", db_ok)
+    print("database_engine", db_engine)
 
     at = AppTest.from_file("app.py")
     at.run()
@@ -132,6 +142,7 @@ def main() -> None:
     print("stripe_customer_saved", bool(profile.get("stripe_customer_id")))
     print("stripe_subscription_saved", bool(profile.get("stripe_subscription_id")))
     print("subscription_status_active", profile.get("subscription_status") == "active")
+    print("subscription_end_saved", bool(profile.get("subscription_end")))
 
     at.session_state["app_page"] = "Contact"
     at.run()
@@ -142,27 +153,9 @@ def main() -> None:
     next(button for button in at.button if button.label == "Submit").click()
     at.run()
 
-    conn = sqlite3.connect(DB_PATH)
-    try:
-        saved_contact_count = conn.execute(
-            "SELECT COUNT(*) FROM contact_messages WHERE user_email = ?",
-            (email,),
-        ).fetchone()[0]
-        saved_feedback_count = conn.execute(
-            "SELECT COUNT(*) FROM analysis_feedback WHERE user_email = ?",
-            (email,),
-        ).fetchone()[0]
-        saved_resume_count = conn.execute(
-            """
-            SELECT COUNT(*)
-            FROM saved_resumes sr
-            JOIN users u ON u.id = sr.user_id
-            WHERE u.email = ?
-            """,
-            (email,),
-        ).fetchone()[0]
-    finally:
-        conn.close()
+    saved_contact_count = count_contact_messages_for_user(email)
+    saved_feedback_count = count_feedback_for_user(email)
+    saved_resume_count = count_saved_resumes_for_user(email)
     print("contact_saved", saved_contact_count >= 1)
     print("feedback_saved", saved_feedback_count >= 1)
     print("saved_resume_count", saved_resume_count)
@@ -183,6 +176,18 @@ def main() -> None:
     at.session_state["current_view"] = "app"
     at.run()
     print("logged_out_app_access_blocked", any(tab.label == "Log In" for tab in at.tabs))
+
+    seo_checks = {
+        "ats-checker": "ATS Resume Checker",
+        "resume-builder": "AI Resume Builder",
+        "interview-prep": "Interview Prep Generator",
+        "cover-letter-generator": "Cover Letter Generator",
+        "linkedin-message-generator": "LinkedIn Message Generator",
+    }
+    caddy_config = Path("deploy/Caddyfile").read_text()
+    for view_name in seo_checks:
+        print(f"{view_name}_registered", view_name in SEO_VIEWS)
+        print(f"{view_name}_caddy_redirect", f"/{view_name}" in caddy_config)
 
     analysis = compare_resume_to_job(resume_text, job_text)
     builder = build_optimized_resume_package(resume_text, job_text, analysis, {"professional_summary": "", "tailored_resume_bullets": []})

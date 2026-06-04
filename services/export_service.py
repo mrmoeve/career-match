@@ -179,6 +179,9 @@ def build_full_report_docx(package: dict) -> bytes:
 
     document.add_heading("Thank-You Email", level=1)
     document.add_paragraph(generated["thank_you_email"])
+    if generated.get("results_summary_email"):
+        document.add_heading("Results Summary Email", level=1)
+        document.add_paragraph(generated["results_summary_email"])
 
     buffer = BytesIO()
     document.save(buffer)
@@ -307,6 +310,9 @@ def build_full_report_pdf(package: dict) -> bytes:
 
     add_paragraph("Thank-You Email", "Heading1")
     add_paragraph(generated["thank_you_email"])
+    if generated.get("results_summary_email"):
+        add_paragraph("Results Summary Email", "Heading1")
+        add_paragraph(generated["results_summary_email"])
 
     doc.build(story)
     buffer.seek(0)

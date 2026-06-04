@@ -1,14 +1,25 @@
 import hashlib
 import hmac
+import logging
 import os
-import sqlite3
 import secrets
+import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlparse
+
+try:
+    import psycopg
+    from psycopg.rows import dict_row
+except Exception:  # pragma: no cover - optional until installed
+    psycopg = None
+    dict_row = None
 
 
 DB_PATH = Path(__file__).resolve().parent / "applications.db"
+LOGGER_NAME = "career_match"
+_ENGINE_LOGGED = False
 
 
 @dataclass
@@ -28,6 +39,7 @@ class ApplicationRecord:
     resume_text: str = ""
     job_description_text: str = ""
     ats_score: int = 0
+    payment_type_used: str = "free"
     payload_json: str = ""
 
 
@@ -91,203 +103,128 @@ class PaymentRecord:
     created_at: str = ""
 
 
-def init_db() -> None:
+def _database_url() -> str:
+    return os.getenv("DATABASE_URL", "").strip()
+
+
+def _database_engine() -> str:
+    url = _database_url().lower()
+    if url.startswith("postgres://") or url.startswith("postgresql://"):
+        return "postgresql"
+    return "sqlite"
+
+
+def _postgres_url() -> str:
+    url = _database_url()
+    if url.startswith("postgres://"):
+        return "postgresql://" + url[len("postgres://") :]
+    return url
+
+
+def _logger() -> logging.Logger:
+    return logging.getLogger(LOGGER_NAME)
+
+
+def _log_engine_once() -> None:
+    global _ENGINE_LOGGED
+    if _ENGINE_LOGGED:
+        return
+    engine = _database_engine()
+    if engine == "postgresql":
+        parsed = urlparse(_postgres_url())
+        target = parsed.hostname or "postgres-host"
+        _logger().info("Database engine active: postgresql (%s)", target)
+    else:
+        _logger().info("Database engine active: sqlite (%s)", DB_PATH.name)
+    _ENGINE_LOGGED = True
+
+
+def get_database_diagnostics() -> dict:
+    engine = _database_engine()
+    diagnostics = {"engine": engine, "postgres_configured": engine == "postgresql"}
+    if engine == "postgresql":
+        parsed = urlparse(_postgres_url())
+        diagnostics["target"] = parsed.hostname or "postgres-host"
+    else:
+        diagnostics["target"] = str(DB_PATH)
+    return diagnostics
+
+
+def _connect():
+    _log_engine_once()
+    if _database_engine() == "postgresql":
+        if not psycopg:
+            raise RuntimeError("DATABASE_URL is set for PostgreSQL, but psycopg is not installed.")
+        return psycopg.connect(_postgres_url(), row_factory=dict_row)
     conn = sqlite3.connect(DB_PATH)
-    try:
-        conn.execute(
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _adapt_sql(query: str) -> str:
+    if _database_engine() == "postgresql":
+        return query.replace("?", "%s")
+    return query
+
+
+def _execute(conn, query: str, params: tuple = ()):
+    return conn.execute(_adapt_sql(query), params)
+
+
+def _fetchone_dict(conn, query: str, params: tuple = ()) -> dict | None:
+    row = _execute(conn, query, params).fetchone()
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        return dict(row)
+    return dict(row)
+
+
+def _fetchall_dicts(conn, query: str, params: tuple = ()) -> list[dict]:
+    rows = _execute(conn, query, params).fetchall()
+    return [dict(row) if not isinstance(row, dict) else dict(row) for row in rows]
+
+
+def _scalar(conn, query: str, params: tuple = (), default=0):
+    row = _execute(conn, query, params).fetchone()
+    if row is None:
+        return default
+    if isinstance(row, dict):
+        values = list(row.values())
+        return values[0] if values else default
+    return row[0]
+
+
+def _insert_and_get_id(conn, query: str, params: tuple, id_column: str) -> int:
+    if _database_engine() == "postgresql":
+        cursor = _execute(conn, f"{query.rstrip()} RETURNING {id_column}", params)
+        value = cursor.fetchone()
+        if isinstance(value, dict):
+            return int(value[id_column])
+        return int(value[0])
+    cursor = _execute(conn, query, params)
+    return int(cursor.lastrowid)
+
+
+def _table_columns(conn, table_name: str) -> set[str]:
+    if _database_engine() == "postgresql":
+        rows = _execute(
+            conn,
             """
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL DEFAULT '',
-                email TEXT NOT NULL UNIQUE,
-                password_hash TEXT NOT NULL,
-                full_name TEXT NOT NULL DEFAULT '',
-                subscription_status TEXT NOT NULL DEFAULT 'free',
-                subscription_plan TEXT NOT NULL DEFAULT 'free',
-                subscription_start TEXT NOT NULL DEFAULT '',
-                subscription_end TEXT NOT NULL DEFAULT '',
-                free_assessments_used INTEGER NOT NULL DEFAULT 0,
-                free_assessments_limit INTEGER NOT NULL DEFAULT 1,
-                assessment_credits INTEGER NOT NULL DEFAULT 0,
-                stripe_customer_id TEXT DEFAULT '',
-                stripe_subscription_id TEXT DEFAULT '',
-                email_verified INTEGER NOT NULL DEFAULT 0
-            )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS password_reset_tokens (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT NOT NULL,
-                token TEXT NOT NULL UNIQUE,
-                expires_at TEXT NOT NULL
-            )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS email_verification_tokens (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT NOT NULL,
-                token TEXT NOT NULL UNIQUE,
-                expires_at TEXT NOT NULL
-            )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS contact_messages (
-                message_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                created_at TEXT NOT NULL,
-                user_id INTEGER NOT NULL DEFAULT 0,
-                user_email TEXT NOT NULL DEFAULT '',
-                name TEXT NOT NULL DEFAULT '',
-                email TEXT NOT NULL DEFAULT '',
-                message_type TEXT NOT NULL,
-                message TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'new'
-            )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS analysis_feedback (
-                feedback_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                created_at TEXT NOT NULL,
-                user_email TEXT NOT NULL DEFAULT '',
-                user_id INTEGER NOT NULL DEFAULT 0,
-                application_id INTEGER NOT NULL,
-                rating TEXT NOT NULL,
-                comment TEXT NOT NULL DEFAULT ''
-            )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS saved_resumes (
-                resume_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL DEFAULT 0,
-                resume_name TEXT NOT NULL DEFAULT '',
-                resume_type TEXT NOT NULL DEFAULT '',
-                original_filename TEXT NOT NULL DEFAULT '',
-                extracted_text TEXT NOT NULL DEFAULT '',
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL DEFAULT '',
-                last_used_at TEXT NOT NULL DEFAULT ''
-            )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS payments (
-                payment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL DEFAULT 0,
-                stripe_session_id TEXT NOT NULL DEFAULT '',
-                stripe_payment_intent TEXT NOT NULL DEFAULT '',
-                amount INTEGER NOT NULL DEFAULT 0,
-                currency TEXT NOT NULL DEFAULT 'usd',
-                product_type TEXT NOT NULL DEFAULT '',
-                status TEXT NOT NULL DEFAULT '',
-                created_at TEXT NOT NULL
-            )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS applications (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_email TEXT NOT NULL DEFAULT '',
-                created_at TEXT NOT NULL,
-                original_resume_text TEXT NOT NULL DEFAULT '',
-                optimized_resume_text TEXT NOT NULL DEFAULT '',
-                original_ats_score INTEGER NOT NULL DEFAULT 0,
-                optimized_ats_score INTEGER NOT NULL DEFAULT 0,
-                company_name TEXT NOT NULL,
-                job_title TEXT NOT NULL,
-                job_url TEXT NOT NULL DEFAULT '',
-                job_location TEXT NOT NULL DEFAULT '',
-                job_date_posted TEXT NOT NULL DEFAULT '',
-                job_category TEXT NOT NULL DEFAULT '',
-                resume_text TEXT NOT NULL,
-                job_description_text TEXT NOT NULL,
-                ats_score INTEGER NOT NULL,
-                payload_json TEXT NOT NULL
-            )
-            """
-        )
-        columns = {
-            row[1]
-            for row in conn.execute("PRAGMA table_info(applications)").fetchall()
-        }
-        user_columns = {
-            row[1]
-            for row in conn.execute("PRAGMA table_info(users)").fetchall()
-        }
-        feedback_columns = {
-            row[1]
-            for row in conn.execute("PRAGMA table_info(analysis_feedback)").fetchall()
-        }
-        resume_columns = {
-            row[1]
-            for row in conn.execute("PRAGMA table_info(saved_resumes)").fetchall()
-        }
-        if "full_name" not in user_columns:
-            conn.execute("ALTER TABLE users ADD COLUMN full_name TEXT NOT NULL DEFAULT ''")
-        if "updated_at" not in user_columns:
-            conn.execute("ALTER TABLE users ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''")
-        if "subscription_status" not in user_columns:
-            conn.execute("ALTER TABLE users ADD COLUMN subscription_status TEXT NOT NULL DEFAULT 'free'")
-        if "subscription_plan" not in user_columns:
-            conn.execute("ALTER TABLE users ADD COLUMN subscription_plan TEXT NOT NULL DEFAULT 'free'")
-        if "subscription_start" not in user_columns:
-            conn.execute("ALTER TABLE users ADD COLUMN subscription_start TEXT NOT NULL DEFAULT ''")
-        if "subscription_end" not in user_columns:
-            conn.execute("ALTER TABLE users ADD COLUMN subscription_end TEXT NOT NULL DEFAULT ''")
-        if "free_assessments_used" not in user_columns:
-            conn.execute("ALTER TABLE users ADD COLUMN free_assessments_used INTEGER NOT NULL DEFAULT 0")
-        if "free_assessments_limit" not in user_columns:
-            conn.execute("ALTER TABLE users ADD COLUMN free_assessments_limit INTEGER NOT NULL DEFAULT 1")
-        if "assessment_credits" not in user_columns:
-            conn.execute("ALTER TABLE users ADD COLUMN assessment_credits INTEGER NOT NULL DEFAULT 0")
-        if "stripe_customer_id" not in user_columns:
-            conn.execute("ALTER TABLE users ADD COLUMN stripe_customer_id TEXT DEFAULT ''")
-        if "stripe_subscription_id" not in user_columns:
-            conn.execute("ALTER TABLE users ADD COLUMN stripe_subscription_id TEXT DEFAULT ''")
-        if "email_verified" not in user_columns:
-            conn.execute("ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0")
-        if "user_id" not in feedback_columns:
-            conn.execute("ALTER TABLE analysis_feedback ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0")
-        if "rating" not in feedback_columns:
-            conn.execute("ALTER TABLE analysis_feedback ADD COLUMN rating TEXT NOT NULL DEFAULT ''")
-        if "resume_type" not in resume_columns:
-            conn.execute("ALTER TABLE saved_resumes ADD COLUMN resume_type TEXT NOT NULL DEFAULT ''")
-        if "updated_at" not in resume_columns:
-            conn.execute("ALTER TABLE saved_resumes ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''")
-        if "last_used_at" not in resume_columns:
-            conn.execute("ALTER TABLE saved_resumes ADD COLUMN last_used_at TEXT NOT NULL DEFAULT ''")
-        if "user_email" not in columns:
-            conn.execute("ALTER TABLE applications ADD COLUMN user_email TEXT NOT NULL DEFAULT ''")
-        if "job_url" not in columns:
-            conn.execute("ALTER TABLE applications ADD COLUMN job_url TEXT NOT NULL DEFAULT ''")
-        if "original_resume_text" not in columns:
-            conn.execute("ALTER TABLE applications ADD COLUMN original_resume_text TEXT NOT NULL DEFAULT ''")
-        if "optimized_resume_text" not in columns:
-            conn.execute("ALTER TABLE applications ADD COLUMN optimized_resume_text TEXT NOT NULL DEFAULT ''")
-        if "original_ats_score" not in columns:
-            conn.execute("ALTER TABLE applications ADD COLUMN original_ats_score INTEGER NOT NULL DEFAULT 0")
-        if "optimized_ats_score" not in columns:
-            conn.execute("ALTER TABLE applications ADD COLUMN optimized_ats_score INTEGER NOT NULL DEFAULT 0")
-        if "job_location" not in columns:
-            conn.execute("ALTER TABLE applications ADD COLUMN job_location TEXT NOT NULL DEFAULT ''")
-        if "job_date_posted" not in columns:
-            conn.execute("ALTER TABLE applications ADD COLUMN job_date_posted TEXT NOT NULL DEFAULT ''")
-        if "job_category" not in columns:
-            conn.execute("ALTER TABLE applications ADD COLUMN job_category TEXT NOT NULL DEFAULT ''")
-        conn.commit()
-    finally:
-        conn.close()
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = ?
+            """,
+            (table_name,),
+        ).fetchall()
+        return {row["column_name"] if isinstance(row, dict) else row[0] for row in rows}
+    rows = _execute(conn, f"PRAGMA table_info({table_name})").fetchall()
+    return {row[1] for row in rows}
+
+
+def _add_column_if_missing(conn, table_name: str, column_name: str, ddl: str) -> None:
+    if column_name not in _table_columns(conn, table_name):
+        _execute(conn, f"ALTER TABLE {table_name} ADD COLUMN {ddl}")
 
 
 def _normalize_email(email: str) -> str:
@@ -313,14 +250,325 @@ def _verify_password(password: str, password_hash: str) -> bool:
         expected_digest = bytes.fromhex(digest_hex)
     except (TypeError, ValueError):
         return False
-
-    candidate_digest = hashlib.pbkdf2_hmac(
-        "sha256",
-        password.encode("utf-8"),
-        salt,
-        iterations,
-    )
+    candidate_digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
     return hmac.compare_digest(candidate_digest, expected_digest)
+
+
+def test_database_connection() -> tuple[bool, str]:
+    try:
+        conn = _connect()
+        try:
+            _scalar(conn, "SELECT 1", default=1)
+            return True, _database_engine()
+        finally:
+            conn.close()
+    except Exception as exc:
+        return False, str(exc)
+
+
+def init_db() -> None:
+    conn = _connect()
+    try:
+        if _database_engine() == "postgresql":
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL DEFAULT '',
+                    email TEXT NOT NULL UNIQUE,
+                    password_hash TEXT NOT NULL,
+                    full_name TEXT NOT NULL DEFAULT '',
+                    subscription_status TEXT NOT NULL DEFAULT 'free',
+                    subscription_plan TEXT NOT NULL DEFAULT 'free',
+                    subscription_start TEXT NOT NULL DEFAULT '',
+                    subscription_end TEXT NOT NULL DEFAULT '',
+                    free_assessments_used INTEGER NOT NULL DEFAULT 0,
+                    free_assessments_limit INTEGER NOT NULL DEFAULT 1,
+                    assessment_credits INTEGER NOT NULL DEFAULT 0,
+                    stripe_customer_id TEXT NOT NULL DEFAULT '',
+                    stripe_subscription_id TEXT NOT NULL DEFAULT '',
+                    email_verified INTEGER NOT NULL DEFAULT 0
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                    id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    email TEXT NOT NULL,
+                    token TEXT NOT NULL UNIQUE,
+                    expires_at TEXT NOT NULL
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS email_verification_tokens (
+                    id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    email TEXT NOT NULL,
+                    token TEXT NOT NULL UNIQUE,
+                    expires_at TEXT NOT NULL
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS contact_messages (
+                    message_id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    created_at TEXT NOT NULL,
+                    user_id INTEGER NOT NULL DEFAULT 0,
+                    user_email TEXT NOT NULL DEFAULT '',
+                    name TEXT NOT NULL DEFAULT '',
+                    email TEXT NOT NULL DEFAULT '',
+                    message_type TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'new'
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS analysis_feedback (
+                    feedback_id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    created_at TEXT NOT NULL,
+                    user_email TEXT NOT NULL DEFAULT '',
+                    user_id INTEGER NOT NULL DEFAULT 0,
+                    application_id INTEGER NOT NULL,
+                    rating TEXT NOT NULL,
+                    comment TEXT NOT NULL DEFAULT ''
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS saved_resumes (
+                    resume_id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    user_id INTEGER NOT NULL DEFAULT 0,
+                    resume_name TEXT NOT NULL DEFAULT '',
+                    resume_type TEXT NOT NULL DEFAULT '',
+                    original_filename TEXT NOT NULL DEFAULT '',
+                    extracted_text TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL DEFAULT '',
+                    last_used_at TEXT NOT NULL DEFAULT ''
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS payments (
+                    payment_id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    user_id INTEGER NOT NULL DEFAULT 0,
+                    stripe_session_id TEXT NOT NULL DEFAULT '',
+                    stripe_payment_intent TEXT NOT NULL DEFAULT '',
+                    amount INTEGER NOT NULL DEFAULT 0,
+                    currency TEXT NOT NULL DEFAULT 'usd',
+                    product_type TEXT NOT NULL DEFAULT '',
+                    status TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS applications (
+                    id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    user_email TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    original_resume_text TEXT NOT NULL DEFAULT '',
+                    optimized_resume_text TEXT NOT NULL DEFAULT '',
+                    original_ats_score INTEGER NOT NULL DEFAULT 0,
+                    optimized_ats_score INTEGER NOT NULL DEFAULT 0,
+                    company_name TEXT NOT NULL,
+                    job_title TEXT NOT NULL,
+                    job_url TEXT NOT NULL DEFAULT '',
+                    job_location TEXT NOT NULL DEFAULT '',
+                    job_date_posted TEXT NOT NULL DEFAULT '',
+                    job_category TEXT NOT NULL DEFAULT '',
+                    resume_text TEXT NOT NULL,
+                    job_description_text TEXT NOT NULL,
+                    ats_score INTEGER NOT NULL,
+                    payment_type_used TEXT NOT NULL DEFAULT 'free',
+                    payload_json TEXT NOT NULL
+                )
+                """,
+            )
+        else:
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL DEFAULT '',
+                    email TEXT NOT NULL UNIQUE,
+                    password_hash TEXT NOT NULL,
+                    full_name TEXT NOT NULL DEFAULT '',
+                    subscription_status TEXT NOT NULL DEFAULT 'free',
+                    subscription_plan TEXT NOT NULL DEFAULT 'free',
+                    subscription_start TEXT NOT NULL DEFAULT '',
+                    subscription_end TEXT NOT NULL DEFAULT '',
+                    free_assessments_used INTEGER NOT NULL DEFAULT 0,
+                    free_assessments_limit INTEGER NOT NULL DEFAULT 1,
+                    assessment_credits INTEGER NOT NULL DEFAULT 0,
+                    stripe_customer_id TEXT DEFAULT '',
+                    stripe_subscription_id TEXT DEFAULT '',
+                    email_verified INTEGER NOT NULL DEFAULT 0
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT NOT NULL,
+                    token TEXT NOT NULL UNIQUE,
+                    expires_at TEXT NOT NULL
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS email_verification_tokens (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT NOT NULL,
+                    token TEXT NOT NULL UNIQUE,
+                    expires_at TEXT NOT NULL
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS contact_messages (
+                    message_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT NOT NULL,
+                    user_id INTEGER NOT NULL DEFAULT 0,
+                    user_email TEXT NOT NULL DEFAULT '',
+                    name TEXT NOT NULL DEFAULT '',
+                    email TEXT NOT NULL DEFAULT '',
+                    message_type TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'new'
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS analysis_feedback (
+                    feedback_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT NOT NULL,
+                    user_email TEXT NOT NULL DEFAULT '',
+                    user_id INTEGER NOT NULL DEFAULT 0,
+                    application_id INTEGER NOT NULL,
+                    rating TEXT NOT NULL,
+                    comment TEXT NOT NULL DEFAULT ''
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS saved_resumes (
+                    resume_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL DEFAULT 0,
+                    resume_name TEXT NOT NULL DEFAULT '',
+                    resume_type TEXT NOT NULL DEFAULT '',
+                    original_filename TEXT NOT NULL DEFAULT '',
+                    extracted_text TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL DEFAULT '',
+                    last_used_at TEXT NOT NULL DEFAULT ''
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS payments (
+                    payment_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL DEFAULT 0,
+                    stripe_session_id TEXT NOT NULL DEFAULT '',
+                    stripe_payment_intent TEXT NOT NULL DEFAULT '',
+                    amount INTEGER NOT NULL DEFAULT 0,
+                    currency TEXT NOT NULL DEFAULT 'usd',
+                    product_type TEXT NOT NULL DEFAULT '',
+                    status TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS applications (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_email TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    original_resume_text TEXT NOT NULL DEFAULT '',
+                    optimized_resume_text TEXT NOT NULL DEFAULT '',
+                    original_ats_score INTEGER NOT NULL DEFAULT 0,
+                    optimized_ats_score INTEGER NOT NULL DEFAULT 0,
+                    company_name TEXT NOT NULL,
+                    job_title TEXT NOT NULL,
+                    job_url TEXT NOT NULL DEFAULT '',
+                    job_location TEXT NOT NULL DEFAULT '',
+                    job_date_posted TEXT NOT NULL DEFAULT '',
+                    job_category TEXT NOT NULL DEFAULT '',
+                    resume_text TEXT NOT NULL,
+                    job_description_text TEXT NOT NULL,
+                    ats_score INTEGER NOT NULL,
+                    payment_type_used TEXT NOT NULL DEFAULT 'free',
+                    payload_json TEXT NOT NULL
+                )
+                """,
+            )
+
+        _add_column_if_missing(conn, "users", "full_name", "full_name TEXT NOT NULL DEFAULT ''")
+        _add_column_if_missing(conn, "users", "updated_at", "updated_at TEXT NOT NULL DEFAULT ''")
+        _add_column_if_missing(conn, "users", "subscription_status", "subscription_status TEXT NOT NULL DEFAULT 'free'")
+        _add_column_if_missing(conn, "users", "subscription_plan", "subscription_plan TEXT NOT NULL DEFAULT 'free'")
+        _add_column_if_missing(conn, "users", "subscription_start", "subscription_start TEXT NOT NULL DEFAULT ''")
+        _add_column_if_missing(conn, "users", "subscription_end", "subscription_end TEXT NOT NULL DEFAULT ''")
+        _add_column_if_missing(conn, "users", "free_assessments_used", "free_assessments_used INTEGER NOT NULL DEFAULT 0")
+        _add_column_if_missing(conn, "users", "free_assessments_limit", "free_assessments_limit INTEGER NOT NULL DEFAULT 1")
+        _add_column_if_missing(conn, "users", "assessment_credits", "assessment_credits INTEGER NOT NULL DEFAULT 0")
+        _add_column_if_missing(conn, "users", "stripe_customer_id", "stripe_customer_id TEXT NOT NULL DEFAULT ''")
+        _add_column_if_missing(conn, "users", "stripe_subscription_id", "stripe_subscription_id TEXT NOT NULL DEFAULT ''")
+        _add_column_if_missing(conn, "users", "email_verified", "email_verified INTEGER NOT NULL DEFAULT 0")
+
+        _add_column_if_missing(conn, "analysis_feedback", "user_id", "user_id INTEGER NOT NULL DEFAULT 0")
+        _add_column_if_missing(conn, "analysis_feedback", "rating", "rating TEXT NOT NULL DEFAULT ''")
+
+        _add_column_if_missing(conn, "saved_resumes", "resume_type", "resume_type TEXT NOT NULL DEFAULT ''")
+        _add_column_if_missing(conn, "saved_resumes", "updated_at", "updated_at TEXT NOT NULL DEFAULT ''")
+        _add_column_if_missing(conn, "saved_resumes", "last_used_at", "last_used_at TEXT NOT NULL DEFAULT ''")
+
+        _add_column_if_missing(conn, "applications", "user_email", "user_email TEXT NOT NULL DEFAULT ''")
+        _add_column_if_missing(conn, "applications", "job_url", "job_url TEXT NOT NULL DEFAULT ''")
+        _add_column_if_missing(conn, "applications", "original_resume_text", "original_resume_text TEXT NOT NULL DEFAULT ''")
+        _add_column_if_missing(conn, "applications", "optimized_resume_text", "optimized_resume_text TEXT NOT NULL DEFAULT ''")
+        _add_column_if_missing(conn, "applications", "original_ats_score", "original_ats_score INTEGER NOT NULL DEFAULT 0")
+        _add_column_if_missing(conn, "applications", "optimized_ats_score", "optimized_ats_score INTEGER NOT NULL DEFAULT 0")
+        _add_column_if_missing(conn, "applications", "job_location", "job_location TEXT NOT NULL DEFAULT ''")
+        _add_column_if_missing(conn, "applications", "job_date_posted", "job_date_posted TEXT NOT NULL DEFAULT ''")
+        _add_column_if_missing(conn, "applications", "job_category", "job_category TEXT NOT NULL DEFAULT ''")
+        _add_column_if_missing(conn, "applications", "payment_type_used", "payment_type_used TEXT NOT NULL DEFAULT 'free'")
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def create_user(created_at: str, email: str, password: str, full_name: str = "") -> tuple[bool, str]:
@@ -329,17 +577,13 @@ def create_user(created_at: str, email: str, password: str, full_name: str = "")
         return False, "Enter an email address."
     if len(password or "") < 8:
         return False, "Use a password with at least 8 characters."
-
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        existing = conn.execute(
-            "SELECT id FROM users WHERE email = ?",
-            (normalized_email,),
-        ).fetchone()
+        existing = _scalar(conn, "SELECT id FROM users WHERE email = ?", (normalized_email,), default=None)
         if existing:
             return False, "An account with that email already exists."
-
-        conn.execute(
+        _execute(
+            conn,
             """
             INSERT INTO users (
                 created_at, updated_at, email, password_hash, full_name, subscription_status,
@@ -372,17 +616,17 @@ def create_user(created_at: str, email: str, password: str, full_name: str = "")
 
 def authenticate_user(email: str, password: str) -> tuple[bool, str]:
     normalized_email = _normalize_email(email)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = _connect()
     try:
-        row = conn.execute(
+        row = _fetchone_dict(
+            conn,
             """
             SELECT id, created_at, email, password_hash
             FROM users
             WHERE email = ?
             """,
             (normalized_email,),
-        ).fetchone()
+        )
         if not row:
             return False, "We couldn't find an account with that email."
         if not _verify_password(password, row["password_hash"]):
@@ -394,10 +638,10 @@ def authenticate_user(email: str, password: str) -> tuple[bool, str]:
 
 def get_user_profile(email: str) -> dict | None:
     normalized_email = _normalize_email(email)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = _connect()
     try:
-        row = conn.execute(
+        return _fetchone_dict(
+            conn,
             """
             SELECT id, created_at, updated_at, email, full_name, subscription_status, subscription_plan,
                    subscription_start, subscription_end, free_assessments_used, free_assessments_limit,
@@ -406,17 +650,16 @@ def get_user_profile(email: str) -> dict | None:
             WHERE email = ?
             """,
             (normalized_email,),
-        ).fetchone()
-        return dict(row) if row else None
+        )
     finally:
         conn.close()
 
 
 def get_user_profile_by_id(user_id: int) -> dict | None:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = _connect()
     try:
-        row = conn.execute(
+        return _fetchone_dict(
+            conn,
             """
             SELECT id, created_at, updated_at, email, full_name, subscription_status, subscription_plan,
                    subscription_start, subscription_end, free_assessments_used, free_assessments_limit,
@@ -425,17 +668,16 @@ def get_user_profile_by_id(user_id: int) -> dict | None:
             WHERE id = ?
             """,
             (int(user_id),),
-        ).fetchone()
-        return dict(row) if row else None
+        )
     finally:
         conn.close()
 
 
 def get_user_profile_by_stripe_customer_id(stripe_customer_id: str) -> dict | None:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = _connect()
     try:
-        row = conn.execute(
+        return _fetchone_dict(
+            conn,
             """
             SELECT id, created_at, updated_at, email, full_name, subscription_status, subscription_plan,
                    subscription_start, subscription_end, free_assessments_used, free_assessments_limit,
@@ -443,18 +685,17 @@ def get_user_profile_by_stripe_customer_id(stripe_customer_id: str) -> dict | No
             FROM users
             WHERE stripe_customer_id = ?
             """,
-            ((stripe_customer_id or "").strip(),),
-        ).fetchone()
-        return dict(row) if row else None
+            (((stripe_customer_id or "").strip()),),
+        )
     finally:
         conn.close()
 
 
 def get_user_profile_by_stripe_subscription_id(stripe_subscription_id: str) -> dict | None:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = _connect()
     try:
-        row = conn.execute(
+        return _fetchone_dict(
+            conn,
             """
             SELECT id, created_at, updated_at, email, full_name, subscription_status, subscription_plan,
                    subscription_start, subscription_end, free_assessments_used, free_assessments_limit,
@@ -462,18 +703,18 @@ def get_user_profile_by_stripe_subscription_id(stripe_subscription_id: str) -> d
             FROM users
             WHERE stripe_subscription_id = ?
             """,
-            ((stripe_subscription_id or "").strip(),),
-        ).fetchone()
-        return dict(row) if row else None
+            (((stripe_subscription_id or "").strip()),),
+        )
     finally:
         conn.close()
 
 
 def update_user_profile(email: str, full_name: str) -> tuple[bool, str]:
     normalized_email = _normalize_email(email)
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        result = conn.execute(
+        result = _execute(
+            conn,
             "UPDATE users SET full_name = ?, updated_at = ? WHERE email = ?",
             ((full_name or "").strip(), _now(), normalized_email),
         )
@@ -487,13 +728,10 @@ def update_user_profile(email: str, full_name: str) -> tuple[bool, str]:
 
 def get_user_id(email: str) -> int:
     normalized_email = _normalize_email(email)
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        row = conn.execute(
-            "SELECT id FROM users WHERE email = ?",
-            (normalized_email,),
-        ).fetchone()
-        return int(row[0]) if row else 0
+        value = _scalar(conn, "SELECT id FROM users WHERE email = ?", (normalized_email,), default=0)
+        return int(value or 0)
     finally:
         conn.close()
 
@@ -505,8 +743,9 @@ def get_assessment_access(email: str) -> dict:
     credits = int(profile.get("assessment_credits", 0))
     subscription_status = (profile.get("subscription_status", "free") or "free").lower()
     subscription_plan = (profile.get("subscription_plan", "free") or "free").lower()
-    is_pro = subscription_status in {"pro", "active", "paid"} or subscription_plan == "pro"
+    is_pro = subscription_status in {"pro", "active", "paid", "trialing"} or subscription_plan == "pro"
     remaining = max(limit - used, 0)
+    current_plan_label = "Pro" if is_pro else ("One-Time Credits" if credits > 0 else "Free")
     return {
         "used": used,
         "limit": limit,
@@ -515,6 +754,7 @@ def get_assessment_access(email: str) -> dict:
         "subscription_status": subscription_status,
         "subscription_plan": subscription_plan,
         "is_pro": is_pro,
+        "current_plan_label": current_plan_label,
         "can_run_analysis": is_pro or credits > 0 or remaining > 0,
     }
 
@@ -526,15 +766,16 @@ def increment_free_assessment_usage(email: str) -> tuple[bool, str]:
         return True, "Pro user does not consume free assessments."
     if access["remaining"] <= 0:
         return False, "Free assessment limit reached."
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        conn.execute(
+        _execute(
+            conn,
             """
             UPDATE users
-            SET free_assessments_used = free_assessments_used + 1
+            SET free_assessments_used = free_assessments_used + 1, updated_at = ?
             WHERE email = ?
             """,
-            (normalized_email,),
+            (_now(), normalized_email),
         )
         conn.commit()
         return True, "Free assessment usage updated."
@@ -549,12 +790,14 @@ def consume_assessment_credit(email: str) -> tuple[bool, str]:
         return True, "Pro user does not consume credits."
     if access["credits"] <= 0:
         return False, "No assessment credits available."
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        conn.execute(
+        _execute(
+            conn,
             """
             UPDATE users
-            SET assessment_credits = MAX(assessment_credits - 1, 0), updated_at = ?
+            SET assessment_credits = CASE WHEN assessment_credits > 0 THEN assessment_credits - 1 ELSE 0 END,
+                updated_at = ?
             WHERE email = ?
             """,
             (_now(), normalized_email),
@@ -567,9 +810,10 @@ def consume_assessment_credit(email: str) -> tuple[bool, str]:
 
 def add_assessment_credits(email: str, credits: int) -> tuple[bool, str]:
     normalized_email = _normalize_email(email)
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        result = conn.execute(
+        result = _execute(
+            conn,
             """
             UPDATE users
             SET assessment_credits = assessment_credits + ?, updated_at = ?
@@ -587,11 +831,12 @@ def add_assessment_credits(email: str, credits: int) -> tuple[bool, str]:
 
 def set_subscription_status(email: str, subscription_status: str) -> tuple[bool, str]:
     normalized_email = _normalize_email(email)
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        result = conn.execute(
+        result = _execute(
+            conn,
             "UPDATE users SET subscription_status = ?, updated_at = ? WHERE email = ?",
-            ((subscription_status or "free").strip().lower(), _now(), normalized_email),
+            (((subscription_status or "free").strip().lower()), _now(), normalized_email),
         )
         conn.commit()
         if result.rowcount == 0:
@@ -609,9 +854,10 @@ def set_subscription_plan(
     subscription_end: str = "",
 ) -> tuple[bool, str]:
     normalized_email = _normalize_email(email)
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        result = conn.execute(
+        result = _execute(
+            conn,
             """
             UPDATE users
             SET subscription_status = ?, subscription_plan = ?, subscription_start = ?, subscription_end = ?, updated_at = ?
@@ -636,15 +882,16 @@ def set_subscription_plan(
 
 def set_stripe_customer_details(email: str, stripe_customer_id: str = "", stripe_subscription_id: str = "") -> tuple[bool, str]:
     normalized_email = _normalize_email(email)
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        result = conn.execute(
+        result = _execute(
+            conn,
             """
             UPDATE users
             SET stripe_customer_id = ?, stripe_subscription_id = ?, updated_at = ?
             WHERE email = ?
             """,
-            ((stripe_customer_id or "").strip(), (stripe_subscription_id or "").strip(), _now(), normalized_email),
+            (((stripe_customer_id or "").strip()), ((stripe_subscription_id or "").strip()), _now(), normalized_email),
         )
         conn.commit()
         if result.rowcount == 0:
@@ -656,21 +903,16 @@ def set_stripe_customer_details(email: str, stripe_customer_id: str = "", stripe
 
 def create_password_reset_token(email: str, expires_at: str) -> tuple[bool, str]:
     normalized_email = _normalize_email(email)
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        user = conn.execute(
-            "SELECT 1 FROM users WHERE email = ?",
-            (normalized_email,),
-        ).fetchone()
+        user = _scalar(conn, "SELECT 1 FROM users WHERE email = ?", (normalized_email,), default=None)
         if not user:
             return False, "We couldn't find an account with that email."
         token = secrets.token_urlsafe(24)
-        conn.execute("DELETE FROM password_reset_tokens WHERE email = ?", (normalized_email,))
-        conn.execute(
-            """
-            INSERT INTO password_reset_tokens (email, token, expires_at)
-            VALUES (?, ?, ?)
-            """,
+        _execute(conn, "DELETE FROM password_reset_tokens WHERE email = ?", (normalized_email,))
+        _execute(
+            conn,
+            "INSERT INTO password_reset_tokens (email, token, expires_at) VALUES (?, ?, ?)",
             (normalized_email, token, expires_at),
         )
         conn.commit()
@@ -681,18 +923,16 @@ def create_password_reset_token(email: str, expires_at: str) -> tuple[bool, str]
 
 def create_email_verification_token(email: str, expires_at: str) -> tuple[bool, str]:
     normalized_email = _normalize_email(email)
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        user = conn.execute("SELECT 1 FROM users WHERE email = ?", (normalized_email,)).fetchone()
+        user = _scalar(conn, "SELECT 1 FROM users WHERE email = ?", (normalized_email,), default=None)
         if not user:
             return False, "We couldn't find an account with that email."
         token = secrets.token_urlsafe(24)
-        conn.execute("DELETE FROM email_verification_tokens WHERE email = ?", (normalized_email,))
-        conn.execute(
-            """
-            INSERT INTO email_verification_tokens (email, token, expires_at)
-            VALUES (?, ?, ?)
-            """,
+        _execute(conn, "DELETE FROM email_verification_tokens WHERE email = ?", (normalized_email,))
+        _execute(
+            conn,
+            "INSERT INTO email_verification_tokens (email, token, expires_at) VALUES (?, ?, ?)",
             (normalized_email, token, expires_at),
         )
         conn.commit()
@@ -702,24 +942,21 @@ def create_email_verification_token(email: str, expires_at: str) -> tuple[bool, 
 
 
 def consume_email_verification_token(token: str, current_time: str) -> tuple[bool, str]:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = _connect()
     try:
-        row = conn.execute(
+        row = _fetchone_dict(
+            conn,
             "SELECT email, token, expires_at FROM email_verification_tokens WHERE token = ?",
-            ((token or "").strip(),),
-        ).fetchone()
+            (((token or "").strip()),),
+        )
         if not row:
             return False, "That verification token is not valid."
         if row["expires_at"] < current_time:
-            conn.execute("DELETE FROM email_verification_tokens WHERE token = ?", (row["token"],))
+            _execute(conn, "DELETE FROM email_verification_tokens WHERE token = ?", (row["token"],))
             conn.commit()
             return False, "That verification token has expired."
-        conn.execute(
-            "UPDATE users SET email_verified = 1, updated_at = ? WHERE email = ?",
-            (_now(), row["email"]),
-        )
-        conn.execute("DELETE FROM email_verification_tokens WHERE email = ?", (row["email"],))
+        _execute(conn, "UPDATE users SET email_verified = 1, updated_at = ? WHERE email = ?", (_now(), row["email"]))
+        _execute(conn, "DELETE FROM email_verification_tokens WHERE email = ?", (row["email"],))
         conn.commit()
         return True, "Email verified."
     finally:
@@ -729,28 +966,21 @@ def consume_email_verification_token(token: str, current_time: str) -> tuple[boo
 def consume_password_reset_token(token: str, new_password: str, current_time: str) -> tuple[bool, str]:
     if len(new_password or "") < 8:
         return False, "Use a password with at least 8 characters."
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = _connect()
     try:
-        row = conn.execute(
-            """
-            SELECT email, token, expires_at
-            FROM password_reset_tokens
-            WHERE token = ?
-            """,
-            ((token or "").strip(),),
-        ).fetchone()
+        row = _fetchone_dict(
+            conn,
+            "SELECT email, token, expires_at FROM password_reset_tokens WHERE token = ?",
+            (((token or "").strip()),),
+        )
         if not row:
             return False, "That reset token is not valid."
         if row["expires_at"] < current_time:
-            conn.execute("DELETE FROM password_reset_tokens WHERE token = ?", (row["token"],))
+            _execute(conn, "DELETE FROM password_reset_tokens WHERE token = ?", (row["token"],))
             conn.commit()
             return False, "That reset token has expired."
-        conn.execute(
-            "UPDATE users SET password_hash = ? WHERE email = ?",
-            (_hash_password(new_password), row["email"]),
-        )
-        conn.execute("DELETE FROM password_reset_tokens WHERE email = ?", (row["email"],))
+        _execute(conn, "UPDATE users SET password_hash = ?, updated_at = ? WHERE email = ?", (_hash_password(new_password), _now(), row["email"]))
+        _execute(conn, "DELETE FROM password_reset_tokens WHERE email = ?", (row["email"],))
         conn.commit()
         return True, "Password updated."
     finally:
@@ -758,29 +988,18 @@ def consume_password_reset_token(token: str, new_password: str, current_time: st
 
 
 def save_application(record: ApplicationRecord) -> int:
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        cursor = conn.execute(
+        application_id = _insert_and_get_id(
+            conn,
             """
             INSERT INTO applications (
-                user_email,
-                created_at,
-                original_resume_text,
-                optimized_resume_text,
-                original_ats_score,
-                optimized_ats_score,
-                company_name,
-                job_title,
-                job_url,
-                job_location,
-                job_date_posted,
-                job_category,
-                resume_text,
-                job_description_text,
-                ats_score,
-                payload_json
+                user_email, created_at, original_resume_text, optimized_resume_text,
+                original_ats_score, optimized_ats_score, company_name, job_title, job_url,
+                job_location, job_date_posted, job_category, resume_text, job_description_text,
+                ats_score, payment_type_used, payload_json
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 getattr(record, "user_email", ""),
@@ -798,65 +1017,65 @@ def save_application(record: ApplicationRecord) -> int:
                 record.resume_text,
                 record.job_description_text,
                 record.ats_score,
+                getattr(record, "payment_type_used", "free"),
                 record.payload_json,
             ),
+            "id",
         )
         conn.commit()
-        return int(cursor.lastrowid)
+        return application_id
     finally:
         conn.close()
 
 
 def list_applications(limit: int = 20, user_email: str = "") -> list[dict]:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = _connect()
     try:
         normalized_email = _normalize_email(user_email)
         if normalized_email:
-            rows = conn.execute(
+            return _fetchall_dicts(
+                conn,
                 """
                 SELECT id, user_email, created_at, company_name, job_title, job_url, job_location, job_date_posted, job_category,
-                       ats_score, original_ats_score, optimized_ats_score, payload_json
+                       ats_score, original_ats_score, optimized_ats_score, payment_type_used, payload_json
                 FROM applications
                 WHERE user_email = ?
                 ORDER BY id DESC
                 LIMIT ?
                 """,
                 (normalized_email, limit),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                """
-                SELECT id, user_email, created_at, company_name, job_title, job_url, job_location, job_date_posted, job_category,
-                       ats_score, original_ats_score, optimized_ats_score, payload_json
-                FROM applications
-                ORDER BY id DESC
-                LIMIT ?
-                """,
-                (limit,),
-            ).fetchall()
-        return [dict(row) for row in rows]
+            )
+        return _fetchall_dicts(
+            conn,
+            """
+            SELECT id, user_email, created_at, company_name, job_title, job_url, job_location, job_date_posted, job_category,
+                   ats_score, original_ats_score, optimized_ats_score, payment_type_used, payload_json
+            FROM applications
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
     finally:
         conn.close()
 
 
 def get_dashboard_metrics(user_email: str) -> dict:
     normalized_email = _normalize_email(user_email)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = _connect()
     try:
         access = get_assessment_access(normalized_email)
         profile = get_user_profile(normalized_email) or {}
-        rows = conn.execute(
+        items = _fetchall_dicts(
+            conn,
             """
-            SELECT job_title, company_name, created_at, ats_score, original_ats_score, optimized_ats_score
+            SELECT job_title, company_name, job_location, created_at, ats_score, original_ats_score, optimized_ats_score, payment_type_used
             FROM applications
             WHERE user_email = ?
             ORDER BY id DESC
             """,
             (normalized_email,),
-        ).fetchall()
-        items = [dict(row) for row in rows]
+        )
         fit_scores = [int(item.get("ats_score", 0)) for item in items]
         return {
             "recent_analyses": items[:5],
@@ -867,16 +1086,19 @@ def get_dashboard_metrics(user_email: str) -> dict:
             "free_assessments_remaining": access["remaining"],
             "free_assessments_limit": access["limit"],
             "assessment_credits": access["credits"],
-            "current_plan": profile.get("subscription_plan", profile.get("subscription_status", "free")),
+            "current_plan": access["current_plan_label"],
+            "subscription_status": profile.get("subscription_status", "free"),
+            "renewal_date": profile.get("subscription_end", ""),
         }
     finally:
         conn.close()
 
 
 def save_payment_record(payment: PaymentRecord) -> int:
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        cursor = conn.execute(
+        payment_id = _insert_and_get_id(
+            conn,
             """
             INSERT INTO payments (
                 user_id, stripe_session_id, stripe_payment_intent, amount, currency, product_type, status, created_at
@@ -893,18 +1115,19 @@ def save_payment_record(payment: PaymentRecord) -> int:
                 payment.status,
                 payment.created_at,
             ),
+            "payment_id",
         )
         conn.commit()
-        return int(cursor.lastrowid)
+        return payment_id
     finally:
         conn.close()
 
 
 def get_latest_payment_for_user(user_id: int) -> dict | None:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = _connect()
     try:
-        row = conn.execute(
+        return _fetchone_dict(
+            conn,
             """
             SELECT payment_id, user_id, stripe_session_id, stripe_payment_intent, amount, currency, product_type, status, created_at
             FROM payments
@@ -913,17 +1136,16 @@ def get_latest_payment_for_user(user_id: int) -> dict | None:
             LIMIT 1
             """,
             (int(user_id),),
-        ).fetchone()
-        return dict(row) if row else None
+        )
     finally:
         conn.close()
 
 
 def list_contact_messages(limit: int = 20) -> list[dict]:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = _connect()
     try:
-        rows = conn.execute(
+        return _fetchall_dicts(
+            conn,
             """
             SELECT message_id, user_id, user_email, name, email, message_type, message, status, created_at
             FROM contact_messages
@@ -931,17 +1153,16 @@ def list_contact_messages(limit: int = 20) -> list[dict]:
             LIMIT ?
             """,
             (limit,),
-        ).fetchall()
-        return [dict(row) for row in rows]
+        )
     finally:
         conn.close()
 
 
 def list_feedback(limit: int = 20) -> list[dict]:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = _connect()
     try:
-        rows = conn.execute(
+        return _fetchall_dicts(
+            conn,
             """
             SELECT feedback_id, user_id, user_email, application_id, rating, comment, created_at
             FROM analysis_feedback
@@ -949,20 +1170,16 @@ def list_feedback(limit: int = 20) -> list[dict]:
             LIMIT ?
             """,
             (limit,),
-        ).fetchall()
-        return [dict(row) for row in rows]
+        )
     finally:
         conn.close()
 
 
 def delete_application(user_email: str, application_id: int) -> tuple[bool, str]:
     normalized_email = _normalize_email(user_email)
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        result = conn.execute(
-            "DELETE FROM applications WHERE user_email = ? AND id = ?",
-            (normalized_email, int(application_id)),
-        )
+        result = _execute(conn, "DELETE FROM applications WHERE user_email = ? AND id = ?", (normalized_email, int(application_id)))
         conn.commit()
         if result.rowcount == 0:
             return False, "Analysis not found."
@@ -972,24 +1189,23 @@ def delete_application(user_email: str, application_id: int) -> tuple[bool, str]
 
 
 def admin_metrics() -> dict:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = _connect()
     try:
         totals = {
-            "total_users": conn.execute("SELECT COUNT(*) FROM users").fetchone()[0],
-            "free_users": conn.execute("SELECT COUNT(*) FROM users WHERE subscription_plan = 'free'").fetchone()[0],
-            "pro_users": conn.execute("SELECT COUNT(*) FROM users WHERE subscription_plan = 'pro' OR subscription_status IN ('pro','active','paid')").fetchone()[0],
-            "total_analyses": conn.execute("SELECT COUNT(*) FROM applications").fetchone()[0],
-            "total_contact_messages": conn.execute("SELECT COUNT(*) FROM contact_messages").fetchone()[0],
-            "total_feedback_items": conn.execute("SELECT COUNT(*) FROM analysis_feedback").fetchone()[0],
-            "average_fit_score": conn.execute("SELECT COALESCE(ROUND(AVG(ats_score)), 0) FROM applications").fetchone()[0],
+            "total_users": int(_scalar(conn, "SELECT COUNT(*) FROM users", default=0) or 0),
+            "free_users": int(_scalar(conn, "SELECT COUNT(*) FROM users WHERE subscription_plan = 'free'", default=0) or 0),
+            "pro_users": int(_scalar(conn, "SELECT COUNT(*) FROM users WHERE subscription_plan = 'pro' OR subscription_status IN ('pro','active','paid','trialing')", default=0) or 0),
+            "total_analyses": int(_scalar(conn, "SELECT COUNT(*) FROM applications", default=0) or 0),
+            "total_contact_messages": int(_scalar(conn, "SELECT COUNT(*) FROM contact_messages", default=0) or 0),
+            "total_feedback_items": int(_scalar(conn, "SELECT COUNT(*) FROM analysis_feedback", default=0) or 0),
+            "average_fit_score": int(_scalar(conn, "SELECT COALESCE(ROUND(AVG(ats_score)), 0) FROM applications", default=0) or 0),
         }
         recent_contact = list_contact_messages(limit=5)
         recent_feedback = list_feedback(limit=5)
         missing_skills_counter: dict[str, int] = {}
-        rows = conn.execute("SELECT payload_json FROM applications WHERE payload_json <> ''").fetchall()
+        rows = _fetchall_dicts(conn, "SELECT payload_json FROM applications WHERE payload_json <> ''")
         for row in rows:
-            payload_json = row["payload_json"]
+            payload_json = row.get("payload_json", "")
             try:
                 import json as _json
                 payload = _json.loads(payload_json)
@@ -1010,9 +1226,10 @@ def admin_metrics() -> dict:
 
 
 def save_contact_submission(submission: ContactSubmission) -> int:
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        cursor = conn.execute(
+        message_id = _insert_and_get_id(
+            conn,
             """
             INSERT INTO contact_messages (created_at, user_id, user_email, name, email, message_type, message, status)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -1027,17 +1244,19 @@ def save_contact_submission(submission: ContactSubmission) -> int:
                 submission.message,
                 submission.status,
             ),
+            "message_id",
         )
         conn.commit()
-        return int(cursor.lastrowid)
+        return message_id
     finally:
         conn.close()
 
 
 def save_analysis_feedback(feedback: AnalysisFeedback) -> int:
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        cursor = conn.execute(
+        feedback_id = _insert_and_get_id(
+            conn,
             """
             INSERT INTO analysis_feedback (created_at, user_email, user_id, application_id, rating, comment)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -1050,25 +1269,27 @@ def save_analysis_feedback(feedback: AnalysisFeedback) -> int:
                 feedback.rating,
                 feedback.comment,
             ),
+            "feedback_id",
         )
         conn.commit()
-        return int(cursor.lastrowid)
+        return feedback_id
     finally:
         conn.close()
 
 
 def save_resume_stub(user_email: str, resume_name: str, original_filename: str, extracted_text: str, created_at: str, resume_type: str = "") -> int:
     user_id = get_user_id(user_email)
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        cursor = conn.execute(
+        resume_id = _insert_and_get_id(
+            conn,
             """
             INSERT INTO saved_resumes (user_id, resume_name, resume_type, original_filename, extracted_text, created_at, updated_at, last_used_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 user_id,
-                (resume_name or "").strip(),
+                (resume_name or "").strip() or "Resume",
                 (resume_type or "").strip(),
                 (original_filename or "").strip(),
                 extracted_text,
@@ -1076,78 +1297,75 @@ def save_resume_stub(user_email: str, resume_name: str, original_filename: str, 
                 created_at,
                 created_at,
             ),
+            "resume_id",
         )
         conn.commit()
-        return int(cursor.lastrowid)
+        return resume_id
     finally:
         conn.close()
 
 
 def list_saved_resumes(user_email: str) -> list[dict]:
     user_id = get_user_id(user_email)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = _connect()
     try:
-        rows = conn.execute(
+        return _fetchall_dicts(
+            conn,
             """
-            SELECT resume_id, resume_name, resume_type, original_filename, created_at, updated_at, last_used_at
+            SELECT resume_id, user_id, resume_name, resume_type, original_filename, extracted_text, created_at, updated_at, last_used_at
             FROM saved_resumes
             WHERE user_id = ?
-            ORDER BY updated_at DESC, created_at DESC
+            ORDER BY resume_id DESC
             """,
             (user_id,),
-        ).fetchall()
-        return [dict(row) for row in rows]
+        )
     finally:
         conn.close()
 
 
 def get_saved_resume(user_email: str, resume_id: int) -> dict | None:
     user_id = get_user_id(user_email)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = _connect()
     try:
-        row = conn.execute(
+        return _fetchone_dict(
+            conn,
             """
-            SELECT resume_id, resume_name, resume_type, original_filename, extracted_text, created_at, updated_at, last_used_at
+            SELECT resume_id, user_id, resume_name, resume_type, original_filename, extracted_text, created_at, updated_at, last_used_at
             FROM saved_resumes
             WHERE user_id = ? AND resume_id = ?
             """,
             (user_id, int(resume_id)),
-        ).fetchone()
-        return dict(row) if row else None
+        )
     finally:
         conn.close()
 
 
 def rename_saved_resume(user_email: str, resume_id: int, resume_name: str) -> tuple[bool, str]:
     user_id = get_user_id(user_email)
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        result = conn.execute(
+        result = _execute(
+            conn,
             """
             UPDATE saved_resumes
             SET resume_name = ?, updated_at = ?
             WHERE user_id = ? AND resume_id = ?
             """,
-            ((resume_name or "").strip(), _now(), user_id, int(resume_id)),
+            (((resume_name or "").strip() or "Resume"), _now(), user_id, int(resume_id)),
         )
         conn.commit()
         if result.rowcount == 0:
             return False, "Saved resume not found."
-        return True, "Saved resume renamed."
+        return True, "Resume renamed."
     finally:
         conn.close()
 
 
 def delete_saved_resume(user_email: str, resume_id: int) -> tuple[bool, str]:
     user_id = get_user_id(user_email)
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        result = conn.execute(
-            "DELETE FROM saved_resumes WHERE user_id = ? AND resume_id = ?",
-            (user_id, int(resume_id)),
-        )
+        result = _execute(conn, "DELETE FROM saved_resumes WHERE user_id = ? AND resume_id = ?", (user_id, int(resume_id)))
         conn.commit()
         if result.rowcount == 0:
             return False, "Saved resume not found."
@@ -1158,9 +1376,10 @@ def delete_saved_resume(user_email: str, resume_id: int) -> tuple[bool, str]:
 
 def mark_saved_resume_used(user_email: str, resume_id: int) -> None:
     user_id = get_user_id(user_email)
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
-        conn.execute(
+        _execute(
+            conn,
             """
             UPDATE saved_resumes
             SET last_used_at = ?, updated_at = ?
@@ -1169,5 +1388,30 @@ def mark_saved_resume_used(user_email: str, resume_id: int) -> None:
             (_now(), _now(), user_id, int(resume_id)),
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+def count_contact_messages_for_user(user_email: str) -> int:
+    conn = _connect()
+    try:
+        return int(_scalar(conn, "SELECT COUNT(*) FROM contact_messages WHERE user_email = ?", (_normalize_email(user_email),), default=0) or 0)
+    finally:
+        conn.close()
+
+
+def count_feedback_for_user(user_email: str) -> int:
+    conn = _connect()
+    try:
+        return int(_scalar(conn, "SELECT COUNT(*) FROM analysis_feedback WHERE user_email = ?", (_normalize_email(user_email),), default=0) or 0)
+    finally:
+        conn.close()
+
+
+def count_saved_resumes_for_user(user_email: str) -> int:
+    user_id = get_user_id(user_email)
+    conn = _connect()
+    try:
+        return int(_scalar(conn, "SELECT COUNT(*) FROM saved_resumes WHERE user_id = ?", (user_id,), default=0) or 0)
     finally:
         conn.close()

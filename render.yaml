@@ -9,6 +9,8 @@ services:
     envVars:
       - key: OPENAI_API_KEY
         sync: false
+      - key: DATABASE_URL
+        sync: false
       - key: OPENAI_MODEL
         value: gpt-4.1-mini
       - key: APP_ENV
@@ -26,6 +28,16 @@ services:
       - key: STRIPE_ONE_TIME_ASSESSMENT_PRICE_ID
         sync: false
       - key: APP_BASE_URL
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: FROM_EMAIL
         sync: false
       - key: SENTRY_DSN
         sync: false

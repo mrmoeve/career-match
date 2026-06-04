@@ -8,3 +8,4 @@ beautifulsoup4>=4.12.0
 sentry-sdk>=2.8.0
 stripe>=11.6.0
 Flask>=3.0.3
+psycopg[binary]>=3.2.9
