@@ -8,6 +8,14 @@
         header Cache-Control "public, max-age=3600"
     }
 
+    handle_path /stripe/webhook* {
+        reverse_proxy 127.0.0.1:8601
+    }
+
+    handle_path /billing/healthz* {
+        reverse_proxy 127.0.0.1:8601
+    }
+
     handle {
         reverse_proxy 127.0.0.1:8501
     }

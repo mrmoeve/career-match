@@ -412,6 +412,63 @@ def get_user_profile(email: str) -> dict | None:
         conn.close()
 
 
+def get_user_profile_by_id(user_id: int) -> dict | None:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute(
+            """
+            SELECT id, created_at, updated_at, email, full_name, subscription_status, subscription_plan,
+                   subscription_start, subscription_end, free_assessments_used, free_assessments_limit,
+                   assessment_credits, stripe_customer_id, stripe_subscription_id, email_verified
+            FROM users
+            WHERE id = ?
+            """,
+            (int(user_id),),
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def get_user_profile_by_stripe_customer_id(stripe_customer_id: str) -> dict | None:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute(
+            """
+            SELECT id, created_at, updated_at, email, full_name, subscription_status, subscription_plan,
+                   subscription_start, subscription_end, free_assessments_used, free_assessments_limit,
+                   assessment_credits, stripe_customer_id, stripe_subscription_id, email_verified
+            FROM users
+            WHERE stripe_customer_id = ?
+            """,
+            ((stripe_customer_id or "").strip(),),
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def get_user_profile_by_stripe_subscription_id(stripe_subscription_id: str) -> dict | None:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute(
+            """
+            SELECT id, created_at, updated_at, email, full_name, subscription_status, subscription_plan,
+                   subscription_start, subscription_end, free_assessments_used, free_assessments_limit,
+                   assessment_credits, stripe_customer_id, stripe_subscription_id, email_verified
+            FROM users
+            WHERE stripe_subscription_id = ?
+            """,
+            ((stripe_subscription_id or "").strip(),),
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
 def update_user_profile(email: str, full_name: str) -> tuple[bool, str]:
     normalized_email = _normalize_email(email)
     conn = sqlite3.connect(DB_PATH)
@@ -839,6 +896,25 @@ def save_payment_record(payment: PaymentRecord) -> int:
         )
         conn.commit()
         return int(cursor.lastrowid)
+    finally:
+        conn.close()
+
+
+def get_latest_payment_for_user(user_id: int) -> dict | None:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute(
+            """
+            SELECT payment_id, user_id, stripe_session_id, stripe_payment_intent, amount, currency, product_type, status, created_at
+            FROM payments
+            WHERE user_id = ?
+            ORDER BY payment_id DESC
+            LIMIT 1
+            """,
+            (int(user_id),),
+        ).fetchone()
+        return dict(row) if row else None
     finally:
         conn.close()
 

@@ -8,10 +8,8 @@ from pathlib import Path
 import streamlit as st
 from database.db import (
     ApplicationRecord,
-    PaymentRecord,
     AnalysisFeedback,
     ContactSubmission,
-    add_assessment_credits,
     admin_metrics,
     authenticate_user,
     consume_password_reset_token,
@@ -38,11 +36,7 @@ from database.db import (
     save_application,
     save_analysis_feedback,
     save_contact_submission,
-    save_payment_record,
     save_resume_stub,
-    set_stripe_customer_details,
-    set_subscription_plan,
-    set_subscription_status,
     update_user_profile,
 )
 from prompts.templates import APP_DISCLAIMER
@@ -55,9 +49,10 @@ from services.export_service import (
 )
 from services.job_url_service import JobExtractionError, fetch_job_posting_from_url
 from services.billing_service import (
+    cancel_subscription,
+    create_billing_portal_session,
     create_credit_checkout_session,
     create_pro_checkout_session,
-    handle_webhook_event,
     payments_configured,
 )
 from services.openai_service import generate_career_materials, is_demo_mode_api_key
@@ -71,7 +66,7 @@ APP_VERSION = "v0.4.0-quality"
 APP_NAME = "Career Match"
 BUILD_TIMESTAMP = datetime.fromtimestamp(Path(__file__).stat().st_mtime).isoformat(sep=" ", timespec="seconds")
 VALID_VIEWS = {"home", "auth", "app", "contact", "privacy", "terms", "pro", "admin"}
-APP_PAGES = ["Dashboard", "Workflow", "Analysis History", "My Resumes", "Pro", "Contact", "Privacy Policy", "Terms", "User Profile"]
+APP_PAGES = ["Dashboard", "Workflow", "Analysis History", "My Resumes", "Pro", "Subscription", "Contact", "Privacy Policy", "Terms", "User Profile"]
 ADMIN_VIEW = "admin"
 
 
@@ -385,6 +380,47 @@ def _send_to_pro_page() -> None:
         _set_view("pro")
 
 
+def _checkout_status_notice() -> None:
+    status = st.query_params.get("checkout", "")
+    if isinstance(status, list):
+        status = status[0] if status else ""
+    if status == "success":
+        st.success("Stripe checkout completed. Your plan status will update as soon as the payment confirmation is received.")
+    elif status == "canceled":
+        st.info("Stripe checkout was canceled. You can return any time to upgrade.")
+
+
+def _start_checkout(product_type: str) -> None:
+    if not st.session_state.get("is_authenticated"):
+        st.session_state["auth_notice"] = "Create an account or sign in before starting checkout."
+        st.session_state["auth_mode"] = "login"
+        _set_view("auth")
+        st.rerun()
+
+    user_id = get_user_id(st.session_state.get("user_email", ""))
+    if product_type == "pro":
+        checkout = create_pro_checkout_session(user_id)
+        state_key = "pro_checkout_url"
+    else:
+        checkout = create_credit_checkout_session(user_id)
+        state_key = "credit_checkout_url"
+
+    if checkout.get("ok") and checkout.get("checkout_url"):
+        st.session_state[state_key] = checkout["checkout_url"]
+        st.success(checkout.get("message", "Stripe Checkout is ready."))
+    else:
+        st.error(checkout.get("message", "Unable to start checkout."))
+
+
+def _open_billing_portal() -> None:
+    result = create_billing_portal_session(st.session_state.get("user_email", ""))
+    if result.get("ok") and result.get("portal_url"):
+        st.session_state["billing_portal_url"] = result["portal_url"]
+        st.success(result.get("message", "Billing portal ready."))
+    else:
+        st.error(result.get("message", "Unable to open the billing portal."))
+
+
 def _can_run_analysis() -> tuple[bool, str]:
     if not st.session_state.get("is_authenticated"):
         return False, "Sign in to start an analysis."
@@ -591,7 +627,7 @@ def render_landing_page() -> None:
                 _set_view("auth")
             st.rerun()
     with pricing_cta_col:
-        if st.button("View Pricing", use_container_width=True):
+        if st.button("Upgrade to Pro", use_container_width=True):
             _set_view("pro")
             st.rerun()
 
@@ -653,6 +689,9 @@ def init_state() -> None:
         "feedback_submitted_for_analysis": False,
         "last_saved_resume_signature": "",
         "analysis_rate_timestamps": [],
+        "pro_checkout_url": "",
+        "credit_checkout_url": "",
+        "billing_portal_url": "",
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
@@ -1699,6 +1738,9 @@ def render_dashboard_page() -> None:
         st.info(f"You have {metrics.get('free_assessments_remaining', 0)} free assessments remaining.")
     else:
         st.warning("You’ve used your free assessment. Upgrade or buy another assessment.")
+        if st.button("Upgrade to Pro", key="dashboard_upgrade_pro", use_container_width=True):
+            st.session_state["app_page"] = "Pro"
+            st.rerun()
 
     st.write("**Recent analyses**")
     if not recent:
@@ -1882,14 +1924,76 @@ def render_profile_page() -> None:
     st.write("**Implementation next steps**")
     for item in subscription.get("next_steps", []):
         st.write(f"- {item}")
-    if st.button("Manage Billing", use_container_width=True):
-        st.session_state["app_page"] = "Pro"
-        st.rerun()
+    profile_left, profile_right = st.columns(2)
+    with profile_left:
+        if st.button("Upgrade to Pro", use_container_width=True):
+            st.session_state["app_page"] = "Pro"
+            st.rerun()
+    with profile_right:
+        if st.button("Manage Billing", use_container_width=True):
+            st.session_state["app_page"] = "Subscription"
+            st.rerun()
     st.caption("Change password is available from the auth screen. Delete account requests can be submitted through Contact.")
+
+
+def render_subscription_page() -> None:
+    st.subheader("Subscription")
+    _checkout_status_notice()
+    user_email = st.session_state.get("user_email", "")
+    profile = get_user_profile(user_email) or {}
+    access = _assessment_access()
+
+    status_left, status_mid, status_right, status_far = st.columns(4)
+    status_left.metric("Current Plan", str(profile.get("subscription_plan", "free")).title())
+    status_mid.metric("Billing Status", str(profile.get("subscription_status", "free")).title())
+    status_right.metric("Free Assessments Used", f"{access.get('used', 0)}/{access.get('limit', 1)}")
+    status_far.metric("Assessment Credits", access.get("credits", 0))
+    if not payments_configured():
+        st.info("Stripe test mode is not fully configured in this environment yet.")
+
+    renewal_date = profile.get("subscription_end", "") or "Not scheduled"
+    st.write(f"**Renewal date:** {renewal_date}")
+    st.write(f"**Stripe customer id:** {profile.get('stripe_customer_id', '') or 'Not set'}")
+    st.write(f"**Stripe subscription id:** {profile.get('stripe_subscription_id', '') or 'Not set'}")
+
+    if access.get("is_pro"):
+        st.success("Career Match Pro is active on this account.")
+    elif access.get("remaining", 0) > 0:
+        st.info("You still have your free assessment available.")
+    else:
+        st.warning("You’ve used your free Career Match assessment.")
+
+    st.write("**Upgrade options**")
+    option_left, option_right = st.columns(2)
+    with option_left:
+        if st.button("Upgrade to Career Match Pro", key="subscription_upgrade_pro", type="primary", use_container_width=True):
+            _start_checkout("pro")
+        if st.session_state.get("pro_checkout_url"):
+            st.link_button("Continue to Secure Pro Checkout", st.session_state["pro_checkout_url"], use_container_width=True)
+    with option_right:
+        if st.button("Buy One Assessment", key="subscription_buy_credit", use_container_width=True):
+            _start_checkout("credit")
+        if st.session_state.get("credit_checkout_url"):
+            st.link_button("Continue to Secure Assessment Checkout", st.session_state["credit_checkout_url"], use_container_width=True)
+
+    manage_left, manage_right = st.columns(2)
+    with manage_left:
+        if st.button("Open Billing Portal", use_container_width=True):
+            _open_billing_portal()
+        if st.session_state.get("billing_portal_url"):
+            st.link_button("Continue to Billing Portal", st.session_state["billing_portal_url"], use_container_width=True)
+    with manage_right:
+        if st.button("Cancel Subscription", use_container_width=True):
+            result = cancel_subscription(user_email)
+            if result.get("ok"):
+                st.success(result.get("message", "Subscription updated."))
+            else:
+                st.error(result.get("message", "Unable to update the subscription."))
 
 
 def render_pro_page() -> None:
     st.subheader("Career Match Pro")
+    _checkout_status_notice()
     subscription = get_subscription_blueprint()
     access = _assessment_access() if st.session_state.get("is_authenticated") else {
         "used": 0,
@@ -1901,6 +2005,8 @@ def render_pro_page() -> None:
 
     if not access.get("is_pro") and access.get("used", 0) >= access.get("limit", 1):
         st.warning("You’ve used your free Career Match assessment.")
+    if not payments_configured():
+        st.info("Stripe test mode is not fully configured in this environment yet.")
 
     left, right = st.columns(2)
     for col, plan in zip((left, right), subscription.get("plans", [])):
@@ -1932,21 +2038,15 @@ def render_pro_page() -> None:
         st.write(f"- {benefit}")
 
     if st.button("Upgrade to Career Match Pro", type="primary", use_container_width=True):
-        user_id = get_user_id(st.session_state.get("user_email", "")) if st.session_state.get("is_authenticated") else 0
-        checkout = create_pro_checkout_session(user_id)
-        if checkout.get("ok"):
-            st.success(checkout.get("message", ""))
-            st.write(f"[Open Pro Checkout Placeholder]({checkout.get('checkout_url', '#')})")
-        else:
-            st.info(checkout.get("message", "Payments are not configured yet."))
+        _start_checkout("pro")
+    if st.session_state.get("pro_checkout_url"):
+        st.link_button("Continue to Secure Pro Checkout", st.session_state["pro_checkout_url"], use_container_width=True)
+
     if st.button("Buy One Assessment", use_container_width=True):
-        user_id = get_user_id(st.session_state.get("user_email", "")) if st.session_state.get("is_authenticated") else 0
-        checkout = create_credit_checkout_session(user_id)
-        if checkout.get("ok"):
-            st.success(checkout.get("message", ""))
-            st.write(f"[Open Assessment Checkout Placeholder]({checkout.get('checkout_url', '#')})")
-        else:
-            st.info(checkout.get("message", "Payments are not configured yet."))
+        _start_checkout("credit")
+    if st.session_state.get("credit_checkout_url"):
+        st.link_button("Continue to Secure Assessment Checkout", st.session_state["credit_checkout_url"], use_container_width=True)
+
     if st.button("Return to Dashboard", use_container_width=True):
         if st.session_state.get("is_authenticated"):
             st.session_state["app_page"] = "Dashboard"
@@ -1954,55 +2054,6 @@ def render_pro_page() -> None:
         else:
             _set_view("home")
         st.rerun()
-    if st.session_state.get("is_authenticated"):
-        demo_left, demo_right = st.columns(2)
-        with demo_left:
-            if st.button("Demo: Add 1 Assessment Credit", use_container_width=True):
-                success, message = add_assessment_credits(st.session_state.get("user_email", ""), 1)
-                if success:
-                    save_payment_record(
-                        PaymentRecord(
-                            user_id=get_user_id(st.session_state.get("user_email", "")),
-                            stripe_session_id="demo_credit",
-                            stripe_payment_intent="demo_credit",
-                            amount=499,
-                            currency="usd",
-                            product_type="one_time_assessment",
-                            status="simulated",
-                            created_at=datetime.now().isoformat(timespec="seconds"),
-                        )
-                    )
-                    st.success("1 assessment credit added.")
-                else:
-                    st.error(message)
-        with demo_right:
-            if st.button("Demo: Simulate Pro Webhook", use_container_width=True):
-                result = handle_webhook_event(
-                    "checkout.session.completed",
-                    {
-                        "user_email": st.session_state.get("user_email", ""),
-                        "stripe_session_id": "demo_pro_session",
-                        "stripe_payment_intent": "demo_pro_intent",
-                        "stripe_customer_id": "cus_demo",
-                        "stripe_subscription_id": "sub_demo",
-                        "amount": 1900,
-                        "currency": "usd",
-                        "product_type": "pro_monthly",
-                        "status": "completed",
-                    },
-                )
-                if result.get("ok"):
-                    st.success("Pro subscription simulated.")
-                else:
-                    st.error(result.get("message", "Unable to simulate Pro."))
-
-    if st.session_state.get("is_authenticated") and not _subscription_is_active():
-        if st.button("Demo: Unlock Pro Access", use_container_width=True):
-            success, message = set_subscription_status(st.session_state.get("user_email", ""), "pro")
-            if success:
-                st.success("Pro access enabled for this local environment.")
-            else:
-                st.error(message)
     if not st.session_state.get("is_authenticated"):
         if st.button("Back to Home", key="pro_home", use_container_width=True):
             _set_view("home")
@@ -2186,6 +2237,8 @@ def render_authenticated_app() -> None:
         render_saved_resumes_page()
     elif selected_page == "Pro":
         render_pro_page()
+    elif selected_page == "Subscription":
+        render_subscription_page()
     elif selected_page == "Contact":
         render_contact_page()
     elif selected_page == "Privacy Policy":

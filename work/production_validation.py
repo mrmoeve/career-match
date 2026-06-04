@@ -8,8 +8,9 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from streamlit.testing.v1 import AppTest
 
-from database.db import DB_PATH, add_assessment_credits, get_dashboard_metrics, set_subscription_plan
+from database.db import DB_PATH, get_dashboard_metrics, get_user_profile
 from services.analysis_service import compare_resume_to_job
+from services.billing_service import handle_webhook_event
 from services.export_service import build_optimized_resume_docx, build_optimized_resume_pdf
 from services.resume_builder_service import build_optimized_resume_package
 import sqlite3
@@ -80,7 +81,19 @@ def main() -> None:
     at.run(timeout=60)
     print("second_assessment_routes_to_pro", at.session_state["app_page"] == "Pro")
 
-    add_assessment_credits(email, 1)
+    credit_result = handle_webhook_event(
+        "checkout.session.completed",
+        {
+            "user_email": email,
+            "stripe_session_id": "test_credit_session",
+            "stripe_payment_intent": "test_credit_intent",
+            "amount": 499,
+            "currency": "usd",
+            "product_type": "one_time_assessment",
+            "status": "completed",
+        },
+    )
+    print("credit_webhook_ok", credit_result.get("ok"))
     at.session_state["app_page"] = "Workflow"
     at.run()
     next(button for button in at.button if button.label == "Analyze and generate materials").click()
@@ -88,7 +101,23 @@ def main() -> None:
     print("credit_user_bypasses_paywall_once", at.session_state["app_page"] == "Workflow")
     print("credits_after_consumption", get_dashboard_metrics(email)["assessment_credits"])
 
-    set_subscription_plan(email, "active", "pro")
+    pro_result = handle_webhook_event(
+        "checkout.session.completed",
+        {
+            "user_email": email,
+            "stripe_session_id": "test_pro_session",
+            "stripe_payment_intent": "test_pro_intent",
+            "stripe_customer_id": "cus_test_123",
+            "stripe_subscription_id": "sub_test_123",
+            "amount": 1900,
+            "currency": "usd",
+            "product_type": "pro_monthly",
+            "status": "completed",
+            "subscription_start": "2026-06-04T12:00:00",
+            "subscription_end": "2026-07-04T12:00:00",
+        },
+    )
+    print("pro_webhook_ok", pro_result.get("ok"))
     at.session_state["app_page"] = "Workflow"
     at.run()
     next(button for button in at.button if button.label == "Analyze and generate materials").click()
@@ -96,11 +125,18 @@ def main() -> None:
     print("pro_user_bypasses_paywall", at.session_state["app_page"] == "Workflow")
     print("dashboard_jobs_analyzed", get_dashboard_metrics(email)["jobs_analyzed"])
 
-    at.radio[0].set_value("Contact")
+    next(item for item in at.radio if item.label == "Navigation").set_value("Subscription")
     at.run()
-    contact_fields = {item.label: item for item in at.text_input if item.label in {"Name", "Email"}}
-    contact_fields["Name"].set_value("Jordan Tester")
-    contact_fields["Email"].set_value(email)
+    print("subscription_page_present", at.session_state["app_page"] == "Subscription")
+    profile = get_user_profile(email) or {}
+    print("stripe_customer_saved", bool(profile.get("stripe_customer_id")))
+    print("stripe_subscription_saved", bool(profile.get("stripe_subscription_id")))
+    print("subscription_status_active", profile.get("subscription_status") == "active")
+
+    at.session_state["app_page"] = "Contact"
+    at.run()
+    next(item for item in at.text_input if item.label == "Name").set_value("Jordan Tester")
+    next(item for item in at.text_input if item.label == "Email").set_value(email)
     at.selectbox[0].set_value("Feature Request")
     at.text_area[-1].set_value("Please keep improving the recruiter-quality analysis.")
     next(button for button in at.button if button.label == "Submit").click()
