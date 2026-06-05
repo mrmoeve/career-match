@@ -187,6 +187,20 @@ def _dedupe_terms(items: list[str]) -> list[str]:
     return deduped
 
 
+def _term_present_in_original_resume(term: str, resume_text: str, evidence_map: dict[str, dict]) -> bool:
+    cleaned_term = _normalize_line(term)
+    if not cleaned_term:
+        return False
+    normalized_resume = resume_text.lower()
+    if re.search(rf"(?<![a-z0-9]){re.escape(cleaned_term.lower())}(?![a-z0-9])", normalized_resume):
+        return True
+    payload = evidence_map.get(cleaned_term, {})
+    if payload.get("evidence_type") == "explicit":
+        return True
+    evidence_line = str(payload.get("exact_resume_line", "")).lower()
+    return bool(evidence_line and cleaned_term.lower() in evidence_line)
+
+
 def _is_section_heading(line: str) -> bool:
     cleaned = _normalize_line(line)
     if not cleaned:
@@ -832,6 +846,45 @@ def _category_improvements(before_breakdown: list[dict], after_breakdown: list[d
     return improvements
 
 
+def _build_transparency_buckets(
+    resume_text: str,
+    analysis: dict,
+    evidence_map: dict[str, dict],
+    keywords_added: list[str],
+    repositioned_terms: list[str],
+    category_improvements: list[dict],
+) -> tuple[list[str], list[str], list[str]]:
+    original_relevant_terms = _dedupe_terms(
+        analysis.get("matching_keywords", [])
+        + analysis.get("resume_skills", [])
+        + [term for term, payload in evidence_map.items() if payload.get("evidence_type") == "explicit"]
+    )
+    original_terms_present = [term for term in original_relevant_terms if _term_present_in_original_resume(term, resume_text, evidence_map)]
+
+    repositioned_clean = _dedupe_terms(
+        repositioned_terms
+        + [
+            term
+            for item in category_improvements
+            for term in item.get("matched_terms_after", [])
+            if _term_present_in_original_resume(term, resume_text, evidence_map)
+        ]
+    )
+    already_present = [
+        term for term in original_terms_present
+        if term.lower() not in {item.lower() for item in repositioned_clean}
+    ]
+    newly_added_from_evidence = [
+        term for term in _dedupe_terms(keywords_added)
+        if not _term_present_in_original_resume(term, resume_text, evidence_map)
+    ]
+    repositioned_clean = [
+        term for term in repositioned_clean
+        if term.lower() not in {item.lower() for item in newly_added_from_evidence}
+    ]
+    return already_present, repositioned_clean, newly_added_from_evidence
+
+
 def build_optimized_resume_package(resume_text: str, job_description_text: str, analysis: dict, generated: dict) -> dict:
     header, sections = _split_resume_sections(resume_text)
     evidence_map = _build_resume_evidence_map(resume_text, analysis)
@@ -876,6 +929,14 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
         keywords_added,
         repositioned_terms,
         after_breakdown,
+    )
+    terms_already_present, repositioned_terms_bucket, newly_added_from_evidence = _build_transparency_buckets(
+        resume_text,
+        analysis,
+        evidence_map,
+        keywords_added,
+        repositioned_terms,
+        category_improvements,
     )
 
     explicit_categories = analysis.get("resume_explicit_keyword_categories", {})
@@ -933,8 +994,10 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
         "matching_keywords_before": keywords_before,
         "matching_keywords_after": keywords_after,
         "keywords_added": keywords_added,
-        "terms_safely_added": keywords_added,
-        "terms_repositioned": repositioned_terms,
+        "terms_already_present": terms_already_present,
+        "terms_repositioned": repositioned_terms_bucket,
+        "terms_newly_added_from_resume_evidence": newly_added_from_evidence,
+        "terms_safely_added": newly_added_from_evidence,
         "terms_not_added_due_to_insufficient_evidence": targeted_keywords_rejected,
         "unsupported_added_keywords": unsupported_added,
         "missing_keywords_remaining": optimized_analysis.get("missing_keywords", []),

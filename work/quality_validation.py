@@ -174,11 +174,18 @@ def main() -> None:
     print("cyera_ats_before", cyera_analysis.get("ats_score"))
     print("cyera_ats_after", cyera_builder.get("optimized_ats_score"))
     print("cyera_keywords_added", cyera_builder.get("keywords_added"))
+    print("cyera_terms_already_present", cyera_builder.get("terms_already_present"))
     print("cyera_terms_safely_added", cyera_builder.get("terms_safely_added"))
     print("cyera_terms_repositioned", cyera_builder.get("terms_repositioned"))
+    print("cyera_terms_newly_added", cyera_builder.get("terms_newly_added_from_resume_evidence"))
     print("cyera_terms_not_added", cyera_builder.get("terms_not_added_due_to_insufficient_evidence"))
     print("cyera_unsupported_added", cyera_builder.get("unsupported_added_keywords"))
     print("cyera_category_improvements", [item.get("category") for item in cyera_builder.get("category_improvements", [])])
+    original_resume_lower = talisa_resume.lower()
+    print(
+        "cyera_newly_added_not_in_original_resume",
+        all(term.lower() not in original_resume_lower for term in cyera_builder.get("terms_newly_added_from_resume_evidence", [])),
+    )
     print(
         "cyera_consistency_test_passed",
         not cyera_builder.get("category_improvements")

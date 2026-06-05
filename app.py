@@ -2130,14 +2130,23 @@ def render_resume_builder_tab() -> None:
 
     added = ", ".join(builder.get("keywords_added", [])) or "None identified"
     st.write(f"**Keywords added:** {added}")
-    safely_added = ", ".join(builder.get("terms_safely_added", [])) or "None identified"
-    st.write(f"**Terms safely added:** {safely_added}")
+    terms_already_present = ", ".join(builder.get("terms_already_present", [])) or "None identified"
+    st.write(f"**Terms already present:** {terms_already_present}")
     repositioned_terms = ", ".join(builder.get("terms_repositioned", [])) or "None identified"
-    st.write(f"**Terms repositioned from existing resume evidence:** {repositioned_terms}")
+    st.write(f"**Terms repositioned:** {repositioned_terms}")
+    newly_added_terms = ", ".join(builder.get("terms_newly_added_from_resume_evidence", [])) or "None identified"
+    st.write(f"**Terms newly added from resume evidence:** {newly_added_terms}")
     not_added = ", ".join(builder.get("targeted_keywords_rejected", [])) or "None identified"
     st.write(f"**Keywords not added:** {not_added}")
     insufficient_terms = ", ".join(builder.get("terms_not_added_due_to_insufficient_evidence", [])) or "None identified"
     st.write(f"**Terms not added due to insufficient evidence:** {insufficient_terms}")
+    st.write("**ATS Gain Contribution**")
+    gain_contribution = builder.get("category_improvements", [])
+    if gain_contribution:
+        for item in gain_contribution:
+            st.write(f"- {item.get('category', 'Category')}: +{item.get('delta', 0)}")
+    else:
+        st.write("None identified")
     if builder.get("unsupported_added_keywords"):
         st.error(
             "Unsupported additions detected and penalized in ATS scoring: "
