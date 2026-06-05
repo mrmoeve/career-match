@@ -2,6 +2,21 @@ import re
 
 from services.analysis_service import compare_resume_to_job
 
+GAP_CONFIDENCE_THRESHOLD = 65
+
+JOB_TERM_ALIASES = {
+    "AI / Automation in Procurement": ["ai pricing models", "ai", "automation", "ai tools", "data & automation", "automation in procurement"],
+    "Automation": ["automation", "streamline workflows", "data & automation", "ai tools"],
+    "ERP": ["erp", "enterprise resource planning"],
+    "Renewal Management": ["renewals", "renewal calendar", "auto-renews", "competitive review"],
+    "Renewal Support": ["renewals", "renewal calendar", "auto-renews"],
+    "G&A Category Management": ["category", "spend categories", "major spend categories", "marketing", "professional services"],
+    "Category Management": ["category", "spend categories", "major spend categories"],
+    "Spend Analysis": ["spend reporting", "spend", "market rates", "savings tracker", "committed spend"],
+    "Strategic Sourcing": ["competitive sourcing", "rfps", "rfqs", "reverse auctions", "sourcing events"],
+    "Vendor Negotiation": ["vendor negotiation", "commercial negotiations", "redline", "commercial terms"],
+}
+
 
 SECTION_ALIASES = {
     "professional summary": "professional summary",
@@ -303,6 +318,84 @@ def _extract_original_skills(sections: dict[str, list[str]], analysis: dict) -> 
 def _contains_term(line: str, term: str) -> bool:
     pattern = rf"(?<![a-z0-9]){re.escape(term.lower())}(?![a-z0-9])"
     return bool(re.search(pattern, line.lower()))
+
+
+def _split_job_sentences(job_description_text: str) -> list[str]:
+    candidates: list[str] = []
+    for block in re.split(r"[\n\r]+", job_description_text):
+        cleaned_block = _normalize_line(block)
+        if not cleaned_block:
+            continue
+        fragments = re.split(r"(?<=[.!?])\s+", cleaned_block)
+        for fragment in fragments:
+            cleaned_fragment = _normalize_line(fragment)
+            if cleaned_fragment:
+                candidates.append(cleaned_fragment)
+    return candidates
+
+
+def _job_aliases_for_term(term: str) -> list[str]:
+    normalized = _normalize_line(term)
+    aliases = [normalized]
+    explicit_aliases = JOB_TERM_ALIASES.get(normalized, [])
+    aliases.extend(explicit_aliases)
+    if not explicit_aliases:
+        tokens = [
+            token for token in re.split(r"[^A-Za-z0-9]+", normalized)
+            if len(token) >= 4 and token.lower() not in {"management", "support", "procurement", "category", "systems", "process"}
+        ]
+        aliases.extend(tokens)
+    return _dedupe_terms(aliases)
+
+
+def _build_job_gap_evidence(term: str, job_description_text: str) -> dict:
+    best_match = {
+        "term": _normalize_line(term),
+        "job_description_sentence": "",
+        "extracted_keyword": "",
+        "confidence_score": 0,
+    }
+    aliases = _job_aliases_for_term(term)
+    sentences = _split_job_sentences(job_description_text)
+    normalized_term = _normalize_line(term).lower()
+    term_tokens = {token for token in re.split(r"[^a-z0-9]+", normalized_term) if len(token) >= 4}
+
+    for sentence in sentences:
+        lowered_sentence = sentence.lower()
+        for alias in aliases:
+            alias_lower = alias.lower()
+            if not alias_lower:
+                continue
+            if alias_lower == normalized_term and _contains_term(sentence, alias):
+                return {
+                    "term": _normalize_line(term),
+                    "job_description_sentence": sentence,
+                    "extracted_keyword": alias,
+                    "confidence_score": 98,
+                }
+            if alias_lower != normalized_term and _contains_term(sentence, alias):
+                confidence = 90 if len(alias_lower.split()) > 1 else 84
+                if confidence > best_match["confidence_score"]:
+                    best_match = {
+                        "term": _normalize_line(term),
+                        "job_description_sentence": sentence,
+                        "extracted_keyword": alias,
+                        "confidence_score": confidence,
+                    }
+
+        if term_tokens:
+            overlap = [token for token in term_tokens if token in lowered_sentence]
+            if overlap:
+                overlap_ratio = len(overlap) / max(len(term_tokens), 1)
+                confidence = round(60 + overlap_ratio * 22)
+                if confidence > best_match["confidence_score"]:
+                    best_match = {
+                        "term": _normalize_line(term),
+                        "job_description_sentence": sentence,
+                        "extracted_keyword": overlap[0],
+                        "confidence_score": confidence,
+                    }
+    return best_match
 
 
 def _clean_resume_lines(resume_text: str) -> list[str]:
@@ -908,6 +1001,90 @@ def _category_improvements(before_breakdown: list[dict], after_breakdown: list[d
     return improvements
 
 
+def _build_term_gain_map(
+    category_improvements: list[dict],
+    remaining_gap_terms: set[str],
+    resume_text: str,
+    evidence_map: dict[str, dict],
+) -> dict[str, int]:
+    gain_map: dict[str, int] = {}
+    remaining_gap_lowers = {term.lower() for term in remaining_gap_terms}
+    for item in category_improvements:
+        delta = int(item.get("delta", 0))
+        if delta <= 0:
+            continue
+        before_terms = {str(term).strip().lower() for term in item.get("matched_terms_before", []) if str(term).strip()}
+        after_terms = [str(term).strip() for term in item.get("matched_terms_after", []) if str(term).strip()]
+        candidate_terms = [term for term in after_terms if term.lower() not in before_terms]
+        if not candidate_terms:
+            candidate_terms = after_terms
+        for term in candidate_terms:
+            if term.lower() in remaining_gap_lowers:
+                continue
+            support_level = _support_level_for_term(term, resume_text, evidence_map)
+            if support_level == "Weak / Unsupported":
+                continue
+            gain_map[term] = max(gain_map.get(term, 0), delta)
+    return gain_map
+
+
+def _build_remaining_gap_details(
+    missing_keywords_remaining: list[str],
+    job_description_text: str,
+    resume_text: str,
+    evidence_map: dict[str, dict],
+    threshold: int = GAP_CONFIDENCE_THRESHOLD,
+) -> list[dict]:
+    details: list[dict] = []
+    for term in _dedupe_terms(missing_keywords_remaining):
+        job_evidence = _build_job_gap_evidence(term, job_description_text)
+        if int(job_evidence.get("confidence_score", 0)) < threshold:
+            continue
+        payload = _build_term_detail(term, resume_text, evidence_map)
+        details.append(
+            {
+                "term": term,
+                "job_description_sentence": job_evidence.get("job_description_sentence", ""),
+                "extracted_keyword": job_evidence.get("extracted_keyword", ""),
+                "confidence_score": int(job_evidence.get("confidence_score", 0)),
+                "support_level": payload.get("support_level", "Weak / Unsupported"),
+                "source_resume_evidence": payload.get("source_resume_evidence", ""),
+                "exact_resume_line": payload.get("exact_resume_line", ""),
+                "remaining_gap_flag": True,
+            }
+        )
+    return details
+
+
+def _build_term_validation_report(
+    analysis_terms: list[str],
+    gain_map: dict[str, int],
+    remaining_gap_terms: set[str],
+    resume_text: str,
+    evidence_map: dict[str, dict],
+) -> list[dict]:
+    report: list[dict] = []
+    for term in _dedupe_terms(analysis_terms):
+        support_level = _support_level_for_term(term, resume_text, evidence_map)
+        remaining_gap_flag = term.lower() in {item.lower() for item in remaining_gap_terms}
+        ats_gain = int(gain_map.get(term, 0))
+        if support_level == "Weak / Unsupported" or remaining_gap_flag:
+            ats_gain = 0
+        report.append(
+            {
+                "term": term,
+                "support_level": support_level,
+                "ats_gain": ats_gain,
+                "remaining_gap_flag": remaining_gap_flag,
+                "is_valid": not (
+                    (support_level == "Weak / Unsupported" and ats_gain > 0)
+                    or (remaining_gap_flag and ats_gain > 0)
+                ),
+            }
+        )
+    return report
+
+
 def _build_transparency_buckets(
     resume_text: str,
     analysis: dict,
@@ -1075,6 +1252,33 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
         if repositioned_terms:
             ats_change_explanation += f" Repositioned evidence also strengthened categories such as {', '.join(repositioned_terms[:3])}."
 
+    remaining_gap_details = _build_remaining_gap_details(
+        optimized_analysis.get("missing_keywords", []),
+        job_description_text,
+        resume_text,
+        evidence_map,
+        threshold=GAP_CONFIDENCE_THRESHOLD,
+    )
+    remaining_gap_terms = {item.get("term", "") for item in remaining_gap_details if item.get("term")}
+    term_gain_map = _build_term_gain_map(category_improvements, remaining_gap_terms, resume_text, evidence_map)
+    validation_terms = _dedupe_terms(
+        keywords_added
+        + terms_already_present
+        + repositioned_terms_bucket
+        + newly_added_from_evidence
+        + transferable_terms_used_carefully
+        + terms_not_added_due_to_insufficient_evidence
+        + list(remaining_gap_terms)
+    )
+    term_validation_report = _build_term_validation_report(
+        validation_terms,
+        term_gain_map,
+        remaining_gap_terms,
+        resume_text,
+        evidence_map,
+    )
+    validation_passed = all(item.get("is_valid", False) for item in term_validation_report)
+
     return {
         "analysis_job_title": analysis.get("job_title", "Optimized Resume"),
         "original_resume_text": resume_text,
@@ -1098,7 +1302,8 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
         "terms_not_added_due_to_insufficient_evidence": terms_not_added_due_to_insufficient_evidence,
         "terms_not_added_details": not_added_term_details,
         "unsupported_added_keywords": unsupported_added,
-        "missing_keywords_remaining": optimized_analysis.get("missing_keywords", []),
+        "missing_keywords_remaining": [item.get("term", "") for item in remaining_gap_details],
+        "remaining_gap_details": remaining_gap_details,
         "ats_change_explanation": ats_change_explanation,
         "improvements_summary": [
             "Rewrote the professional summary using only resume-backed evidence.",
@@ -1124,6 +1329,9 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
         "ats_breakdown_before": before_breakdown,
         "ats_breakdown_after": after_breakdown,
         "category_improvements": category_improvements,
+        "term_ats_gain_map": term_gain_map,
+        "term_validation_report": term_validation_report,
+        "term_validation_passed": validation_passed,
         "analytics": {
             "gaps_identified": len(target_gap_fixes),
             "gaps_addressed": len([item for item in target_gap_fixes if item.get("keyword_added")]),

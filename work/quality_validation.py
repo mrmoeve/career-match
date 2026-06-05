@@ -5,20 +5,33 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from bs4 import BeautifulSoup
+try:
+    from bs4 import BeautifulSoup
+except ModuleNotFoundError:  # pragma: no cover - local validation fallback
+    BeautifulSoup = None
 
 from services.analysis_service import compare_resume_to_job
 from services.affiliate_service import build_learning_recommendations
-from services.job_url_service import (
-    _extract_category,
-    _extract_company,
-    _extract_date_posted,
-    _extract_description,
-    _extract_json_ld_objects,
-    _extract_location,
-    _extract_title,
-    _pick_job_posting_object,
-)
+try:
+    from services.job_url_service import (
+        _extract_category,
+        _extract_company,
+        _extract_date_posted,
+        _extract_description,
+        _extract_json_ld_objects,
+        _extract_location,
+        _extract_title,
+        _pick_job_posting_object,
+    )
+except ModuleNotFoundError:  # pragma: no cover - local validation fallback
+    _extract_category = None
+    _extract_company = None
+    _extract_date_posted = None
+    _extract_description = None
+    _extract_json_ld_objects = None
+    _extract_location = None
+    _extract_title = None
+    _pick_job_posting_object = None
 from services.resume_builder_service import build_optimized_resume_package
 
 
@@ -100,15 +113,18 @@ excellent communication, and the ability to influence senior stakeholders.
 def main() -> None:
     resume_text = Path("work/test_assets/sample_resume.txt").read_text()
 
-    soup = BeautifulSoup(MELTWATER_HTML, "html.parser")
-    objects = _extract_json_ld_objects(soup)
-    job_posting = _pick_job_posting_object(objects)
-    title, _ = _extract_title(soup, job_posting)
-    company, _ = _extract_company(soup, job_posting, "https://jobs.meltwater.com/example")
-    location, _ = _extract_location(soup, job_posting)
-    date_posted, _ = _extract_date_posted(soup, job_posting)
-    category, _ = _extract_category(soup, job_posting)
-    description, _ = _extract_description(soup, job_posting)
+    if BeautifulSoup is not None and _extract_json_ld_objects is not None:
+        soup = BeautifulSoup(MELTWATER_HTML, "html.parser")
+        objects = _extract_json_ld_objects(soup)
+        job_posting = _pick_job_posting_object(objects)
+        title, _ = _extract_title(soup, job_posting)
+        company, _ = _extract_company(soup, job_posting, "https://jobs.meltwater.com/example")
+        location, _ = _extract_location(soup, job_posting)
+        date_posted, _ = _extract_date_posted(soup, job_posting)
+        category, _ = _extract_category(soup, job_posting)
+        description, _ = _extract_description(soup, job_posting)
+    else:
+        title = company = location = date_posted = category = description = "BeautifulSoup unavailable"
 
     analysis = compare_resume_to_job(resume_text, MELTWATER_JOB_TEXT)
     generated = {"professional_summary": "", "tailored_resume_bullets": []}
@@ -121,6 +137,8 @@ def main() -> None:
             skills_section_line = optimized_lines[index + 1].strip()
             break
 
+    print("beautifulsoup_available", BeautifulSoup is not None)
+    print("job_url_validation_available", _extract_json_ld_objects is not None)
     print("title", title)
     print("company", company)
     print("location", location)
@@ -216,6 +234,38 @@ def main() -> None:
     }
     safe_terms = set(pulte_builder.get("terms_newly_added_from_resume_evidence", []) + pulte_builder.get("transferable_terms_used_carefully", []))
     print("pulte_safe_terms_have_visible_evidence", safe_terms.issubset(visible_detail_terms))
+
+    clay_job_text = Path("work/test_assets/clay_procurement_job.txt").read_text()
+    clay_analysis = compare_resume_to_job(talisa_resume, clay_job_text)
+    clay_builder = build_optimized_resume_package(talisa_resume, clay_job_text, clay_analysis, {"professional_summary": "", "tailored_resume_bullets": []})
+    print("clay_ats_before", clay_analysis.get("ats_score"))
+    print("clay_ats_after", clay_builder.get("optimized_ats_score"))
+    print("clay_remaining_gaps", clay_builder.get("missing_keywords_remaining"))
+    print("clay_unsupported_terms", clay_builder.get("unsupported_added_keywords"))
+    print("clay_validation_report")
+    for row in clay_builder.get("term_validation_report", []):
+        print(
+            f"  - {row.get('term')}: support={row.get('support_level')} ats_gain={row.get('ats_gain')} remaining_gap_flag={row.get('remaining_gap_flag')}"
+        )
+    print(
+        "clay_gap_evidence_complete",
+        all(
+            item.get("job_description_sentence")
+            and item.get("extracted_keyword")
+            and int(item.get("confidence_score", 0)) >= 65
+            for item in clay_builder.get("remaining_gap_details", [])
+        ),
+    )
+    print(
+        "clay_validation_no_contradictions",
+        all(
+            (row.get("support_level") != "Weak / Unsupported" or row.get("ats_gain", 0) == 0)
+            and (row.get("ats_gain", 0) == 0 or row.get("support_level") in {"Explicit", "Transferable"})
+            and (not row.get("remaining_gap_flag") or row.get("ats_gain", 0) == 0)
+            for row in clay_builder.get("term_validation_report", [])
+        ),
+    )
+    print("clay_validation_passed", clay_builder.get("term_validation_passed"))
 
 
 if __name__ == "__main__":

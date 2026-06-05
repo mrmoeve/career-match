@@ -52,12 +52,12 @@ from services.analysis_service import compare_resume_to_job
 from services.affiliate_service import build_learning_recommendations
 from services.export_service import (
     build_full_report_docx,
-    build_full_report_pdf,
     build_optimized_resume_docx,
     build_optimized_resume_pdf,
 )
 from services.email_service import build_results_summary_email, email_configured, get_email_diagnostics, send_email_message
 from services.job_url_service import JobExtractionError, fetch_job_posting_from_url
+from services.pdf_export_service import build_full_ai_review_pdf, build_tab_pdf
 from services.billing_service import (
     cancel_subscription,
     create_billing_portal_session,
@@ -1554,6 +1554,66 @@ def _optimized_resume_filename(resume_text: str, extension: str) -> str:
     return f"{safe_name}_Resume.{extension}"
 
 
+def _pdf_export_package(analysis: dict, resume_text: str, job_text: str, generated_outputs: dict) -> dict:
+    analysis = analysis or {}
+    return {
+        "analysis": analysis,
+        "generated": generated_outputs or {},
+        "resume_text": resume_text or "",
+        "job_text": job_text or "",
+        "resume_filename": st.session_state.get("resume_filename", ""),
+        "job_filename": st.session_state.get("job_filename", ""),
+        "job_url": st.session_state.get("job_url", ""),
+        "job_location": st.session_state.get("job_location_preview", ""),
+        "job_date_posted": st.session_state.get("job_date_posted_preview", ""),
+        "job_category": st.session_state.get("job_category_preview", ""),
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "user_email": st.session_state.get("user_email", ""),
+        "active_role_profile_name": (
+            analysis.get("active_role_profile", {}).get("headline")
+            or st.session_state.get("active_role_profile", {}).get("headline", "")
+            or analysis.get("role_family", "")
+        ),
+    }
+
+
+def render_pdf_download_button(tab_name, analysis, resume_text, job_text, generated_outputs):
+    analysis = analysis or {}
+    has_results = bool(
+        analysis
+        or generated_outputs
+        or resume_text.strip()
+        or job_text.strip()
+    )
+    if not has_results:
+        st.warning("PDF export is unavailable because this tab does not have any generated results yet.")
+        logger.info("pdf_button_skipped tab=%s reason=no_results", tab_name)
+        return
+
+    st.write("**PDF Export**")
+    package = _pdf_export_package(analysis, resume_text, job_text, generated_outputs)
+    try:
+        if tab_name == "Export":
+            pdf_bytes, file_name, _payload = build_full_ai_review_pdf(package)
+            label = "Download Full AI Review PDF"
+        else:
+            pdf_bytes, file_name, _payload = build_tab_pdf(tab_name, package)
+            label = "Download PDF"
+        if not pdf_bytes:
+            raise ValueError("PDF generation returned empty content.")
+        st.download_button(
+            label=label,
+            data=pdf_bytes,
+            file_name=file_name,
+            mime="application/pdf",
+            key=f"pdf_download_{tab_name.lower().replace(' ', '_')}",
+        )
+        logger.info("pdf_button_rendered tab=%s file_name=%s bytes=%s", tab_name, file_name, len(pdf_bytes))
+    except Exception as exc:
+        logger.exception("PDF export unavailable for tab=%s", tab_name)
+        st.warning(f"PDF export is temporarily unavailable for this tab: {exc}")
+
+
 def render_upload_tab() -> None:
     st.subheader("Upload source materials")
     st.caption(APP_DISCLAIMER)
@@ -1827,6 +1887,13 @@ def render_match_tab() -> None:
     if not analysis:
         st.info("Upload a resume and job description in the Upload tab to see the match analysis.")
         return
+    render_pdf_download_button(
+        "Resume Match",
+        analysis,
+        st.session_state.get("resume_text", ""),
+        st.session_state.get("job_text", ""),
+        st.session_state.get("generated", {}) or {},
+    )
 
     job_fit = analysis.get("job_fit", {})
     fit_score = int(analysis.get("overall_fit_score", 0) or 0)
@@ -2091,6 +2158,13 @@ def render_tailored_resume_tab() -> None:
     if not generated:
         st.info("Your tailored resume content will appear here after analysis.")
         return
+    render_pdf_download_button(
+        "Tailored Resume",
+        st.session_state.get("analysis", {}) or {},
+        st.session_state.get("resume_text", ""),
+        st.session_state.get("job_text", ""),
+        generated,
+    )
 
     st.write("**Professional summary**")
     st.text_area("Summary", generated["professional_summary"], height=140)
@@ -2110,6 +2184,13 @@ def render_resume_builder_tab() -> None:
     if not builder:
         st.warning("Resume Builder output is not available yet. Re-run generation to refresh the output.")
         return
+    render_pdf_download_button(
+        "Resume Builder",
+        st.session_state.get("analysis", {}) or {},
+        st.session_state.get("resume_text", ""),
+        st.session_state.get("job_text", ""),
+        generated,
+    )
 
     st.warning(
         "Review before submitting. This tool rewrites only from your uploaded resume and does not verify employer requirements."
@@ -2156,7 +2237,8 @@ def render_resume_builder_tab() -> None:
     gain_contribution = builder.get("category_improvements", [])
     if gain_contribution:
         for item in gain_contribution:
-            st.write(f"- {item.get('category', 'Category')}: +{item.get('delta', 0)}")
+            after_terms = ", ".join(item.get("matched_terms_after", [])[:4]) or "None"
+            st.write(f"- {item.get('category', 'Category')}: +{item.get('delta', 0)} | Matched after: {after_terms}")
     else:
         st.write("None identified")
     if builder.get("unsupported_added_keywords"):
@@ -2166,6 +2248,29 @@ def render_resume_builder_tab() -> None:
         )
     remaining = ", ".join(builder.get("missing_keywords_remaining", [])) or "None identified"
     st.write(f"**Remaining gaps:** {remaining}")
+    remaining_gap_details = builder.get("remaining_gap_details", [])
+    if remaining_gap_details:
+        st.write("**Gap evidence from the job description**")
+        for item in remaining_gap_details:
+            with st.expander(f"{item.get('term', 'Gap')} | Confidence {item.get('confidence_score', 0)}%"):
+                st.write(f"**Extracted keyword:** {item.get('extracted_keyword', '') or 'None'}")
+                st.write(f"**Job description sentence:** {item.get('job_description_sentence', '') or 'None'}")
+                st.write(f"**Resume support level:** {item.get('support_level', 'Weak / Unsupported')}")
+                if item.get("source_resume_evidence"):
+                    st.write(f"**Resume evidence:** {item.get('source_resume_evidence', '')}")
+                if item.get("exact_resume_line"):
+                    st.write(f"**Exact resume line:** {item.get('exact_resume_line', '')}")
+    st.write("**ATS validation report**")
+    validation_rows = builder.get("term_validation_report", [])
+    if validation_rows:
+        for row in validation_rows:
+            status = "Pass" if row.get("is_valid") else "Fail"
+            st.write(
+                f"- {row.get('term', 'Term')}: support {row.get('support_level', 'Unknown')} | "
+                f"ATS gain {row.get('ats_gain', 0)} | remaining gap {row.get('remaining_gap_flag', False)} | {status}"
+            )
+    else:
+        st.write("None identified")
     st.write("**Targeted Gap Fixes**")
     for item in builder.get("targeted_gap_fixes", []):
         with st.expander(item.get("gap_name", "Gap")):
@@ -2293,6 +2398,13 @@ def render_cover_letter_tab() -> None:
     if not generated:
         st.info("Your cover letter will appear here after analysis.")
         return
+    render_pdf_download_button(
+        "Cover Letter",
+        st.session_state.get("analysis", {}) or {},
+        st.session_state.get("resume_text", ""),
+        st.session_state.get("job_text", ""),
+        generated,
+    )
     st.text_area("Cover letter", generated["cover_letter"], height=420)
 
 
@@ -2307,6 +2419,13 @@ def render_interview_tab() -> None:
     if not dashboard:
         st.warning("Interview intelligence is not available yet. Re-run generation to refresh the output.")
         return
+    render_pdf_download_button(
+        "Interview Intelligence",
+        st.session_state.get("analysis", {}) or {},
+        st.session_state.get("resume_text", ""),
+        st.session_state.get("job_text", ""),
+        generated,
+    )
 
     top_questions = dashboard.get("top_25_likely_questions", [])
     technical_questions = dashboard.get("technical_questions", [])
@@ -2386,6 +2505,13 @@ def render_career_coach_tab() -> None:
     if not coach:
         st.warning("Career coaching recommendations are not available yet. Re-run generation to refresh the output.")
         return
+    render_pdf_download_button(
+        "Career Coach",
+        st.session_state.get("analysis", {}) or {},
+        st.session_state.get("resume_text", ""),
+        st.session_state.get("job_text", ""),
+        generated,
+    )
 
     st.caption(coach.get("overview", ""))
 
@@ -2443,6 +2569,13 @@ def render_linkedin_tab() -> None:
     if not generated:
         st.info("Your LinkedIn outreach message will appear here after analysis.")
         return
+    render_pdf_download_button(
+        "LinkedIn Message",
+        st.session_state.get("analysis", {}) or {},
+        st.session_state.get("resume_text", ""),
+        st.session_state.get("job_text", ""),
+        generated,
+    )
     st.text_area("LinkedIn message", generated["linkedin_recruiter_message"], height=220)
 
 
@@ -2452,6 +2585,13 @@ def render_thank_you_tab() -> None:
     if not generated:
         st.info("Your thank-you email will appear here after analysis.")
         return
+    render_pdf_download_button(
+        "Thank You Email",
+        st.session_state.get("analysis", {}) or {},
+        st.session_state.get("resume_text", ""),
+        st.session_state.get("job_text", ""),
+        generated,
+    )
     st.text_area("Thank-you email", generated["thank_you_email"], height=220)
 
 
@@ -2462,6 +2602,13 @@ def render_export_tab() -> None:
     if not analysis or not generated:
         st.info("Generate materials first to enable export.")
         return
+    render_pdf_download_button(
+        "Export",
+        analysis,
+        st.session_state.get("resume_text", ""),
+        st.session_state.get("job_text", ""),
+        generated,
+    )
 
     package = {
         "analysis": analysis,
@@ -2476,19 +2623,11 @@ def render_export_tab() -> None:
     }
 
     docx_bytes = build_full_report_docx(package)
-    pdf_bytes = build_full_report_pdf(package)
-
     st.download_button(
         "Download DOCX",
         data=docx_bytes,
         file_name="career_match_export.docx",
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    )
-    st.download_button(
-        "Download PDF",
-        data=pdf_bytes,
-        file_name="career_match_export.pdf",
-        mime="application/pdf",
     )
 
     st.write("**Results summary email**")
@@ -2534,6 +2673,13 @@ def render_evidence_tab() -> None:
     if not builder:
         st.info("Resume evidence details are not available yet.")
         return
+    render_pdf_download_button(
+        "Evidence",
+        st.session_state.get("analysis", {}) or {},
+        st.session_state.get("resume_text", ""),
+        st.session_state.get("job_text", ""),
+        generated,
+    )
 
     st.metric("Trust Score", f"{builder.get('trust_score', 0)}%")
     st.write("**Added keywords**")
