@@ -67,6 +67,7 @@ from services.billing_service import (
     payments_configured,
 )
 from services.openai_service import generate_career_materials, is_demo_mode_api_key
+from services.resume_coach_service import QUICK_PROMPTS, generate_resume_coach_response
 from services.resume_builder_service import build_optimized_resume_package
 from services.runtime_service import configure_logging, init_monitoring
 from services.subscription_service import get_subscription_blueprint
@@ -529,7 +530,21 @@ def _record_affiliate_click(recommendation: dict) -> None:
 def render_learning_resources_section(key_prefix: str = "match") -> None:
     recommendations = _current_learning_recommendations()
     if not recommendations:
+        logger.info(
+            "Affiliate recommendations render skipped. affiliate_cards_rendered=%s recommendation_count=%s recommendation_categories=%s section=%s",
+            False,
+            0,
+            [],
+            key_prefix,
+        )
         return
+    logger.info(
+        "Affiliate recommendations rendered. affiliate_cards_rendered=%s recommendation_count=%s recommendation_categories=%s section=%s",
+        True,
+        len(recommendations),
+        [item.get("category", "") for item in recommendations],
+        key_prefix,
+    )
     st.write("**Recommended Learning Resources**")
     st.caption("Some resources may use affiliate links. Recommendations are based on your assessment gaps.")
     for index, recommendation in enumerate(recommendations, start=1):
@@ -1137,6 +1152,9 @@ def init_state() -> None:
         "session_id": "",
         "page_view_tracker": {},
         "admin_test_mode": True,
+        "resume_coach_messages": [],
+        "resume_coach_prompt_input": "",
+        "resume_coach_logged_opened": False,
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
@@ -1192,6 +1210,148 @@ def _extract_resume_candidate_name(resume_text: str) -> str:
             continue
         return stripped
     return "Candidate"
+
+
+def _render_resume_coach(builder: dict) -> None:
+    analysis = st.session_state.get("analysis") or {}
+    resume_text = st.session_state.get("resume_text", "") or builder.get("original_resume_text", "") or builder.get("optimized_resume_text", "")
+    job_text = (
+        st.session_state.get("job_text", "")
+        or st.session_state.get("manual_job_text", "")
+        or builder.get("job_description_text", "")
+    )
+    render_reason = ""
+    if not analysis:
+        render_reason = "missing_analysis"
+    elif not builder:
+        render_reason = "missing_resume_builder"
+    elif not resume_text:
+        render_reason = "missing_resume_text"
+    if render_reason:
+        logger.info(
+            "resume_coach_rendered=%s reason=%s analysis_present=%s builder_present=%s resume_text_present=%s job_text_present=%s analysis_id=%s",
+            False,
+            render_reason,
+            bool(analysis),
+            bool(builder),
+            bool(resume_text),
+            bool(job_text),
+            st.session_state.get("last_application_id", 0),
+        )
+        return
+    logger.info(
+        "resume_coach_rendered=%s reason=%s analysis_present=%s builder_present=%s resume_text_present=%s job_text_present=%s analysis_id=%s",
+        True,
+        "ready",
+        bool(analysis),
+        bool(builder),
+        bool(resume_text),
+        bool(job_text),
+        st.session_state.get("last_application_id", 0),
+    )
+
+    st.write("**AI Resume Coach**")
+    st.caption(
+        "Ask how to improve your resume using only evidence from your uploaded resume and the job description."
+    )
+
+    if not st.session_state.get("resume_coach_logged_opened"):
+        logger.info(
+            "resume_coach_chat_opened user_email=%s analysis_id=%s",
+            st.session_state.get("user_email", "") or "anonymous",
+            st.session_state.get("last_application_id", 0),
+        )
+        st.session_state["resume_coach_logged_opened"] = True
+
+    prompt_cols = st.columns(len(QUICK_PROMPTS))
+    for index, quick_prompt in enumerate(QUICK_PROMPTS):
+        with prompt_cols[index]:
+            if st.button(quick_prompt, key=f"resume_coach_quick_{index}", use_container_width=True):
+                st.session_state["resume_coach_prompt_input"] = quick_prompt
+
+    messages = st.session_state.setdefault("resume_coach_messages", [])
+    for message in messages:
+        with st.chat_message(message.get("role", "assistant")):
+            st.markdown(message.get("content", ""))
+
+    user_prompt = st.chat_input(
+        "Ask the AI Resume Coach",
+        key="resume_coach_chat_input",
+    )
+    if not user_prompt and st.session_state.get("resume_coach_prompt_input"):
+        user_prompt = st.session_state.get("resume_coach_prompt_input", "")
+        st.session_state["resume_coach_prompt_input"] = ""
+
+    if not user_prompt:
+        return
+
+    logger.info(
+        "resume_coach_prompt_submitted user_email=%s analysis_id=%s prompt=%s",
+        st.session_state.get("user_email", "") or "anonymous",
+        st.session_state.get("last_application_id", 0),
+        user_prompt[:200],
+    )
+
+    messages.append({"role": "user", "content": user_prompt})
+    with st.chat_message("user"):
+        st.markdown(user_prompt)
+
+    with st.chat_message("assistant"):
+        with st.spinner("Coaching your resume..."):
+            response = generate_resume_coach_response(
+                user_prompt=user_prompt,
+                resume_text=resume_text,
+                job_description_text=job_text,
+                analysis=analysis,
+                builder=builder,
+            )
+            st.markdown(response)
+
+    logger.info(
+        "resume_coach_response_generated user_email=%s analysis_id=%s response_length=%s",
+        st.session_state.get("user_email", "") or "anonymous",
+        st.session_state.get("last_application_id", 0),
+        len(response),
+    )
+    messages.append({"role": "assistant", "content": response})
+
+
+def _resume_coach_diagnostics(builder: dict) -> dict:
+    analysis = st.session_state.get("analysis") or {}
+    resume_text = st.session_state.get("resume_text", "") or builder.get("original_resume_text", "") or builder.get("optimized_resume_text", "")
+    job_text = (
+        st.session_state.get("job_text", "")
+        or st.session_state.get("manual_job_text", "")
+        or builder.get("job_description_text", "")
+    )
+    optimized_resume_text = builder.get("optimized_resume_text", "") or st.session_state.get("optimized_resume_text", "")
+    analysis_exists = bool(analysis)
+    resume_builder_exists = bool(builder)
+    resume_text_exists = bool(resume_text)
+    job_text_exists = bool(job_text)
+    optimized_resume_exists = bool(optimized_resume_text)
+    missing_keywords_count = len(analysis.get("missing_keywords", []) or [])
+    targeted_gap_fix_count = len(builder.get("targeted_gap_fixes", []) or [])
+
+    skip_reason = ""
+    if not analysis_exists:
+        skip_reason = "missing_analysis"
+    elif not resume_builder_exists:
+        skip_reason = "missing_resume_builder"
+    elif not resume_text_exists:
+        skip_reason = "missing_resume_text"
+
+    return {
+        "resume_coach_rendered": skip_reason == "",
+        "resume_coach_skip_reason": skip_reason or "ready",
+        "analysis_exists": analysis_exists,
+        "resume_builder_exists": resume_builder_exists,
+        "resume_text_exists": resume_text_exists,
+        "job_text_exists": job_text_exists,
+        "optimized_resume_exists": optimized_resume_exists,
+        "missing_keywords_count": missing_keywords_count,
+        "targeted_gap_fix_count": targeted_gap_fix_count,
+    }
 
 
 def _track_page_view(view_name: str, app_page: str = "") -> None:
@@ -1483,6 +1643,9 @@ def render_upload_tab() -> None:
                 st.session_state["optimized_resume_text"] = generated["resume_builder"]["optimized_resume_text"]
                 st.session_state["generated"] = generated
                 st.session_state["application_saved"] = False
+                st.session_state["resume_coach_messages"] = []
+                st.session_state["resume_coach_prompt_input"] = ""
+                st.session_state["resume_coach_logged_opened"] = False
 
             _save_current_application()
             _record_successful_assessment()
@@ -1837,6 +2000,34 @@ def render_resume_builder_tab() -> None:
             st.write(f"**Keyword added:** {'Yes' if item.get('keyword_added') else 'No'}")
             if item.get("not_added_reason"):
                 st.caption(item.get("not_added_reason", ""))
+    coach_diagnostics = _resume_coach_diagnostics(builder)
+    logger.info(
+        "resume_coach_rendered=%s resume_coach_skip_reason=%s analysis_exists=%s resume_builder_exists=%s resume_text_exists=%s job_text_exists=%s optimized_resume_exists=%s missing_keywords_count=%s targeted_gap_fix_count=%s analysis_id=%s",
+        coach_diagnostics["resume_coach_rendered"],
+        coach_diagnostics["resume_coach_skip_reason"],
+        coach_diagnostics["analysis_exists"],
+        coach_diagnostics["resume_builder_exists"],
+        coach_diagnostics["resume_text_exists"],
+        coach_diagnostics["job_text_exists"],
+        coach_diagnostics["optimized_resume_exists"],
+        coach_diagnostics["missing_keywords_count"],
+        coach_diagnostics["targeted_gap_fix_count"],
+        st.session_state.get("last_application_id", 0),
+    )
+    st.write("**AI Resume Coach Diagnostics**")
+    diagnostics_left, diagnostics_right = st.columns(2)
+    with diagnostics_left:
+        st.write(f"- resume_coach_rendered: {coach_diagnostics['resume_coach_rendered']}")
+        st.write(f"- resume_coach_skip_reason: {coach_diagnostics['resume_coach_skip_reason']}")
+        st.write(f"- analysis_exists: {coach_diagnostics['analysis_exists']}")
+        st.write(f"- resume_builder_exists: {coach_diagnostics['resume_builder_exists']}")
+        st.write(f"- resume_text_exists: {coach_diagnostics['resume_text_exists']}")
+    with diagnostics_right:
+        st.write(f"- job_text_exists: {coach_diagnostics['job_text_exists']}")
+        st.write(f"- optimized_resume_exists: {coach_diagnostics['optimized_resume_exists']}")
+        st.write(f"- missing_keywords_count: {coach_diagnostics['missing_keywords_count']}")
+        st.write(f"- targeted_gap_fix_count: {coach_diagnostics['targeted_gap_fix_count']}")
+    _render_resume_coach(builder)
     st.write("**Recruiter-ready bullet rewrites**")
     for bullet in builder.get("recruiter_ready_bullets", []):
         st.write(bullet)
@@ -2529,8 +2720,18 @@ def render_history_page() -> None:
             if st.button("Reopen Analysis", key=f"reopen_{item['id']}"):
                 st.session_state["analysis"] = analysis or None
                 st.session_state["generated"] = generated or None
+                st.session_state["resume_text"] = (
+                    item.get("original_resume_text")
+                    or item.get("resume_text")
+                    or st.session_state.get("resume_text", "")
+                )
+                st.session_state["job_text"] = (
+                    item.get("job_description_text")
+                    or st.session_state.get("job_text", "")
+                )
                 if generated and generated.get("resume_builder"):
                     st.session_state["optimized_resume_text"] = generated["resume_builder"].get("optimized_resume_text", "")
+                st.session_state["resume_coach_logged_opened"] = False
                 st.session_state["last_application_id"] = item.get("id", 0)
                 st.session_state["app_page"] = "Workflow"
                 st.success("Analysis reopened in the workflow.")
@@ -2538,6 +2739,16 @@ def render_history_page() -> None:
             if st.button("Duplicate Analysis", key=f"duplicate_{item['id']}"):
                 st.session_state["analysis"] = analysis or None
                 st.session_state["generated"] = generated or None
+                st.session_state["resume_text"] = (
+                    item.get("original_resume_text")
+                    or item.get("resume_text")
+                    or st.session_state.get("resume_text", "")
+                )
+                st.session_state["job_text"] = (
+                    item.get("job_description_text")
+                    or st.session_state.get("job_text", "")
+                )
+                st.session_state["resume_coach_logged_opened"] = False
                 st.session_state["app_page"] = "Workflow"
                 st.success("Analysis duplicated into the workflow for editing.")
                 st.rerun()

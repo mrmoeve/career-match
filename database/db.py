@@ -1191,7 +1191,8 @@ def list_applications(limit: int = 20, user_email: str = "") -> list[dict]:
                 conn,
                 """
                 SELECT id, user_email, created_at, company_name, job_title, job_url, job_location, job_date_posted, job_category,
-                       ats_score, original_ats_score, optimized_ats_score, payment_type_used, is_admin_test, payload_json
+                       ats_score, original_ats_score, optimized_ats_score, payment_type_used, is_admin_test, payload_json,
+                       original_resume_text, optimized_resume_text, resume_text, job_description_text
                 FROM applications
                 WHERE user_email = ?
                 ORDER BY id DESC
@@ -1203,7 +1204,8 @@ def list_applications(limit: int = 20, user_email: str = "") -> list[dict]:
             conn,
             """
             SELECT id, user_email, created_at, company_name, job_title, job_url, job_location, job_date_posted, job_category,
-                   ats_score, original_ats_score, optimized_ats_score, payment_type_used, is_admin_test, payload_json
+                   ats_score, original_ats_score, optimized_ats_score, payment_type_used, is_admin_test, payload_json,
+                   original_resume_text, optimized_resume_text, resume_text, job_description_text
             FROM applications
             ORDER BY id DESC
             LIMIT ?

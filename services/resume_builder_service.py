@@ -727,6 +727,8 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
 
     return {
         "analysis_job_title": analysis.get("job_title", "Optimized Resume"),
+        "original_resume_text": resume_text,
+        "job_description_text": job_description_text,
         "optimized_resume_text": optimized_resume_text,
         "original_ats_score": original_ats,
         "optimized_ats_score": optimized_ats,
