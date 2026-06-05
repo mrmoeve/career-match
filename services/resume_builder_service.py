@@ -18,6 +18,18 @@ SECTION_ALIASES = {
 }
 
 INFERRED_EVIDENCE_RULES = {
+    "Category Management": [
+        (r"\bprocurement strategy\b|\bvendor coordination\b|\bbudget ownership\b|\bportfolio oversight\b|\bmulti-site execution\b", "The resume shows procurement strategy, vendor coordination, budget ownership, or portfolio oversight that provides transferable category-management evidence."),
+    ],
+    "G&A Category Management": [
+        (r"\bprocurement strategy\b|\bvendor coordination\b|\bbudget ownership\b|\bportfolio oversight\b|\bmulti-site execution\b", "The resume shows broad procurement ownership and portfolio management that provides transferable G&A category-management evidence."),
+    ],
+    "Strategic Sourcing": [
+        (r"\bprocurement strategy\b|\bprocurement and execution\b|\bsourcing strategy\b", "The resume shows procurement-strategy work that closely supports strategic sourcing language."),
+    ],
+    "Spend Analysis": [
+        (r"\bcost savings\b|\bbudget ownership\b|\bpricing validation\b|\btracking systems?\b|\bcost analysis\b", "The resume shows cost, budget, pricing, or tracking work that provides transferable spend-analysis evidence."),
+    ],
     "Automation": [
         (r"\bcentralized tracking systems?\b|\btracking systems?\b|\bstreamlin(ed|e)\b|\bimprov(ed|ing)\b|\bsystems?\b", "The resume shows systems, centralized tracking, or workflow improvements that provide limited but relevant automation evidence."),
     ],
@@ -58,10 +70,10 @@ INFERRED_EVIDENCE_RULES = {
         (r"\bapplication support\b|\buser support\b|\bissue resolution\b|\bpoint of contact\b", "The resume shows support work that aligns with customer-success outcomes."),
     ],
     "Onboarding": [
-        (r"\btraining\b|\bonboarding\b|\bworkflow\b", "The resume shows onboarding, training, or workflow enablement language."),
+        (r"\bonboarding\b|\bramp(?:ing)?\b|\bnew communities\b|\bcommunity setup\b", "The resume shows direct onboarding, ramp-up, or setup language."),
     ],
     "Client Onboarding": [
-        (r"\btraining\b|\bonboarding\b|\busers?\b", "The resume shows user onboarding or training support that can be positioned carefully."),
+        (r"\bclient onboarding\b|\bonboarding clients?\b|\bnew client\b|\bcustomer onboarding\b", "The resume shows direct client-onboarding language."),
     ],
     "Incident Management": [
         (r"\bissue resolution\b|\bsupport\b|\bescalation\b|\bservice\b", "The resume shows issue-resolution activity that can support incident-management language."),
@@ -83,10 +95,11 @@ INFERRED_EVIDENCE_RULES = {
 TARGET_GAP_PATTERNS = {
     "Automation": [r"\bcentralized tracking systems?\b", r"\btracking systems?\b", r"\bworkflow\b", r"\bprocess improvement\b", r"\bstreamlin"],
     "AI / Automation in Procurement": [r"\bcentralized tracking systems?\b", r"\btracking systems?\b", r"\bworkflow\b", r"\bprocess improvement\b", r"\bsystems?\b"],
+    "Category Management": [r"\bcategory management\b", r"\bprocurement strategy\b", r"\bportfolio oversight\b", r"\bbudget ownership\b", r"\bvendor coordination\b"],
     "Customer Success": [r"\bcustomer success\b", r"\buser support\b", r"\bapplication support\b", r"\bissue resolution\b", r"\bpoint of contact\b"],
     "Client Communication": [r"\bclient communication\b", r"\bcommunication\b", r"\binternal and external users\b", r"\bstakeholders?\b", r"\bpoint of contact\b"],
-    "Onboarding": [r"\bonboarding\b", r"\btraining\b", r"\badoption\b", r"\benablement\b"],
-    "Client Onboarding": [r"\bonboarding\b", r"\btraining\b", r"\busers?\b", r"\bworkflows?\b"],
+    "Onboarding": [r"\bonboarding\b", r"\bramp(?:ing)?\b", r"\bnew communities\b", r"\bcommunity setup\b"],
+    "Client Onboarding": [r"\bclient onboarding\b", r"\bonboarding clients?\b", r"\bnew client\b", r"\bcustomer onboarding\b"],
     "Account Management": [r"\baccount management\b", r"\bpartners?\b", r"\brelationship management\b", r"\bstakeholders?\b"],
     "Client Relationship Management": [r"\brelationship management\b", r"\bpartners?\b", r"\bstakeholders?\b", r"\busers?\b"],
     "Incident Management": [r"\bincident management\b", r"\bissue resolution\b", r"\bescalation\b", r"\bsupport\b", r"\bservice\b"],
@@ -99,6 +112,10 @@ TARGET_GAP_PATTERNS = {
 }
 
 TARGET_GAP_SUGGESTIONS = {
+    "Category Management": [
+        "Applied procurement strategy, budget ownership, and vendor-coordination experience across multiple project scopes, providing transferable support for category-management responsibilities.",
+        "Supported category-style procurement planning through portfolio oversight, vendor coordination, and budget-focused decision-making across active project scopes."
+    ],
     "Automation": [
         "Built centralized tracking systems and process-improvement workflows that improved execution efficiency and streamlined coordination across procurement activity.",
         "Improved procurement-adjacent workflows by centralizing tracking, tightening execution visibility, and reducing coordination friction across teams."
@@ -199,6 +216,28 @@ def _term_present_in_original_resume(term: str, resume_text: str, evidence_map: 
         return True
     evidence_line = str(payload.get("exact_resume_line", "")).lower()
     return bool(evidence_line and cleaned_term.lower() in evidence_line)
+
+
+def _support_level_for_term(term: str, resume_text: str, evidence_map: dict[str, dict]) -> str:
+    if _term_present_in_original_resume(term, resume_text, evidence_map):
+        return "Explicit"
+    payload = evidence_map.get(_normalize_line(term), {})
+    if payload:
+        evidence_type = payload.get("evidence_type", "")
+        if evidence_type == "explicit":
+            return "Explicit"
+        if evidence_type in {"inferred", "transferable"}:
+            return "Transferable"
+    return "Weak / Unsupported"
+
+
+def _reason_for_support_level(term: str, support_level: str, evidence_map: dict[str, dict]) -> str:
+    payload = evidence_map.get(_normalize_line(term), {})
+    if support_level == "Explicit":
+        return payload.get("source_resume_evidence", "Found directly or in very close language in the uploaded resume.")
+    if support_level == "Transferable":
+        return payload.get("source_resume_evidence", "Supported by adjacent resume-backed experience and used carefully.")
+    return "No reliable resume-backed evidence was found."
 
 
 def _is_section_heading(line: str) -> bool:
@@ -331,6 +370,27 @@ def _build_resume_evidence_map(resume_text: str, analysis: dict) -> dict[str, di
                         evidence_line=line,
                         confidence=88,
                         evidence_type="inferred",
+                    )
+                    break
+            if term in evidence_map:
+                break
+
+    job_relevant_terms = _dedupe_terms(
+        analysis.get("missing_keywords", [])
+        + [item.get("competency", "") for item in analysis.get("competency_scores", [])]
+    )
+    for term in job_relevant_terms:
+        if term in evidence_map:
+            continue
+        for pattern, reason in INFERRED_EVIDENCE_RULES.get(term, []):
+            for line in lines:
+                if re.search(pattern, line, re.IGNORECASE):
+                    add_evidence(
+                        term=term,
+                        reason=reason,
+                        evidence_line=line,
+                        confidence=82,
+                        evidence_type="transferable",
                     )
                     break
             if term in evidence_map:
@@ -669,6 +729,7 @@ def _build_keyword_explanations(keywords: list[str], analysis: dict, evidence_ma
                 category = key.replace("_", " ").title()
                 break
         evidence = evidence_map.get(term, {})
+        support_level = "Explicit" if evidence.get("evidence_type") == "explicit" else "Transferable" if evidence else "Weak / Unsupported"
         explanations.append(
             {
                 "keyword": term,
@@ -677,6 +738,7 @@ def _build_keyword_explanations(keywords: list[str], analysis: dict, evidence_ma
                 "exact_resume_line": evidence.get("exact_resume_line", ""),
                 "confidence_score": evidence.get("confidence_score", 0),
                 "evidence_type": evidence.get("evidence_type", "unsupported"),
+                "support_level": support_level,
                 "category": category,
             }
         )
@@ -853,7 +915,7 @@ def _build_transparency_buckets(
     keywords_added: list[str],
     repositioned_terms: list[str],
     category_improvements: list[dict],
-) -> tuple[list[str], list[str], list[str]]:
+) -> tuple[list[str], list[str], list[str], list[str]]:
     original_relevant_terms = _dedupe_terms(
         analysis.get("matching_keywords", [])
         + analysis.get("resume_skills", [])
@@ -874,15 +936,35 @@ def _build_transparency_buckets(
         term for term in original_terms_present
         if term.lower() not in {item.lower() for item in repositioned_clean}
     ]
-    newly_added_from_evidence = [
-        term for term in _dedupe_terms(keywords_added)
-        if not _term_present_in_original_resume(term, resume_text, evidence_map)
-    ]
+    newly_added_from_evidence: list[str] = []
+    transferable_terms_used_carefully: list[str] = []
+    for term in _dedupe_terms(keywords_added):
+        if _term_present_in_original_resume(term, resume_text, evidence_map):
+            continue
+        support_level = _support_level_for_term(term, resume_text, evidence_map)
+        if support_level == "Explicit":
+            newly_added_from_evidence.append(term)
+        elif support_level == "Transferable":
+            transferable_terms_used_carefully.append(term)
     repositioned_clean = [
         term for term in repositioned_clean
-        if term.lower() not in {item.lower() for item in newly_added_from_evidence}
+        if term.lower() not in {item.lower() for item in newly_added_from_evidence + transferable_terms_used_carefully}
     ]
-    return already_present, repositioned_clean, newly_added_from_evidence
+    return already_present, repositioned_clean, newly_added_from_evidence, transferable_terms_used_carefully
+
+
+def _build_term_detail(term: str, resume_text: str, evidence_map: dict[str, dict]) -> dict:
+    normalized = _normalize_line(term)
+    payload = evidence_map.get(normalized, {})
+    support_level = _support_level_for_term(normalized, resume_text, evidence_map)
+    return {
+        "term": normalized,
+        "source_resume_evidence": payload.get("source_resume_evidence", _reason_for_support_level(normalized, support_level, evidence_map)),
+        "exact_resume_line": payload.get("exact_resume_line", ""),
+        "support_level": support_level,
+        "reason": _reason_for_support_level(normalized, support_level, evidence_map),
+        "confidence_score": payload.get("confidence_score", 0),
+    }
 
 
 def build_optimized_resume_package(resume_text: str, job_description_text: str, analysis: dict, generated: dict) -> dict:
@@ -930,7 +1012,7 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
         repositioned_terms,
         after_breakdown,
     )
-    terms_already_present, repositioned_terms_bucket, newly_added_from_evidence = _build_transparency_buckets(
+    terms_already_present, repositioned_terms_bucket, newly_added_from_evidence, transferable_terms_used_carefully = _build_transparency_buckets(
         resume_text,
         analysis,
         evidence_map,
@@ -938,6 +1020,16 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
         repositioned_terms,
         category_improvements,
     )
+    unsupported_added = _dedupe_terms([
+        term for term in unsupported_added
+        if _support_level_for_term(term, resume_text, evidence_map) == "Weak / Unsupported"
+    ])
+    terms_not_added_due_to_insufficient_evidence = _dedupe_terms(targeted_keywords_rejected + unsupported_added)
+    terms_already_present_details = [_build_term_detail(term, resume_text, evidence_map) for term in terms_already_present]
+    repositioned_term_details = [_build_term_detail(term, resume_text, evidence_map) for term in repositioned_terms_bucket]
+    newly_added_term_details = [_build_term_detail(term, resume_text, evidence_map) for term in newly_added_from_evidence]
+    transferable_term_details = [_build_term_detail(term, resume_text, evidence_map) for term in transferable_terms_used_carefully]
+    not_added_term_details = [_build_term_detail(term, resume_text, evidence_map) for term in terms_not_added_due_to_insufficient_evidence]
 
     explicit_categories = analysis.get("resume_explicit_keyword_categories", {})
     supported_categories = analysis.get("resume_supported_keyword_categories", {})
@@ -995,10 +1087,16 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
         "matching_keywords_after": keywords_after,
         "keywords_added": keywords_added,
         "terms_already_present": terms_already_present,
+        "terms_already_present_details": terms_already_present_details,
         "terms_repositioned": repositioned_terms_bucket,
+        "terms_repositioned_details": repositioned_term_details,
         "terms_newly_added_from_resume_evidence": newly_added_from_evidence,
-        "terms_safely_added": newly_added_from_evidence,
-        "terms_not_added_due_to_insufficient_evidence": targeted_keywords_rejected,
+        "terms_newly_added_details": newly_added_term_details,
+        "terms_safely_added": newly_added_from_evidence + transferable_terms_used_carefully,
+        "transferable_terms_used_carefully": transferable_terms_used_carefully,
+        "transferable_terms_used_carefully_details": transferable_term_details,
+        "terms_not_added_due_to_insufficient_evidence": terms_not_added_due_to_insufficient_evidence,
+        "terms_not_added_details": not_added_term_details,
         "unsupported_added_keywords": unsupported_added,
         "missing_keywords_remaining": optimized_analysis.get("missing_keywords", []),
         "ats_change_explanation": ats_change_explanation,

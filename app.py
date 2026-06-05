@@ -1281,6 +1281,21 @@ def _semantic_skill_matches(analysis: dict) -> list[dict]:
     return semantic_matches
 
 
+def _render_term_detail_block(title: str, details: list[dict]) -> None:
+    st.write(f"**{title}**")
+    if not details:
+        st.write("None identified")
+        return
+    for item in details:
+        st.write(f"- {item.get('term', '')}")
+        st.write(f"  Source resume evidence: {item.get('source_resume_evidence', 'No evidence found.')}")
+        exact_line = item.get("exact_resume_line", "")
+        if exact_line:
+            st.write(f"  Exact resume line: {exact_line}")
+        st.write(f"  Support level: {item.get('support_level', 'Unknown')}")
+        st.write(f"  Reason: {item.get('reason', '')}")
+
+
 def _hydrate_saved_analysis(item: dict, saved_analysis: dict | None) -> dict:
     analysis = dict(saved_analysis or {})
     resume_text = (
@@ -2130,16 +2145,13 @@ def render_resume_builder_tab() -> None:
 
     added = ", ".join(builder.get("keywords_added", [])) or "None identified"
     st.write(f"**Keywords added:** {added}")
-    terms_already_present = ", ".join(builder.get("terms_already_present", [])) or "None identified"
-    st.write(f"**Terms already present:** {terms_already_present}")
-    repositioned_terms = ", ".join(builder.get("terms_repositioned", [])) or "None identified"
-    st.write(f"**Terms repositioned:** {repositioned_terms}")
-    newly_added_terms = ", ".join(builder.get("terms_newly_added_from_resume_evidence", [])) or "None identified"
-    st.write(f"**Terms newly added from resume evidence:** {newly_added_terms}")
+    _render_term_detail_block("Terms Already Present", builder.get("terms_already_present_details", []))
+    _render_term_detail_block("Terms Repositioned", builder.get("terms_repositioned_details", []))
+    _render_term_detail_block("Terms Newly Added From Resume Evidence", builder.get("terms_newly_added_details", []))
+    _render_term_detail_block("Transferable Terms Used Carefully", builder.get("transferable_terms_used_carefully_details", []))
     not_added = ", ".join(builder.get("targeted_keywords_rejected", [])) or "None identified"
     st.write(f"**Keywords not added:** {not_added}")
-    insufficient_terms = ", ".join(builder.get("terms_not_added_due_to_insufficient_evidence", [])) or "None identified"
-    st.write(f"**Terms not added due to insufficient evidence:** {insufficient_terms}")
+    _render_term_detail_block("Terms Not Added Due To Insufficient Evidence", builder.get("terms_not_added_details", []))
     st.write("**ATS Gain Contribution**")
     gain_contribution = builder.get("category_improvements", [])
     if gain_contribution:

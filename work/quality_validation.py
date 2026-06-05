@@ -193,6 +193,30 @@ def main() -> None:
         or "unsupported additions" in cyera_builder.get("ats_change_explanation", "").lower(),
     )
 
+    pulte_job_text = Path("work/test_assets/pultegroup_procurement_agent_job.txt").read_text()
+    pulte_analysis = compare_resume_to_job(talisa_resume, pulte_job_text)
+    pulte_builder = build_optimized_resume_package(talisa_resume, pulte_job_text, pulte_analysis, {"professional_summary": "", "tailored_resume_bullets": []})
+    print("pulte_ats_before", pulte_analysis.get("ats_score"))
+    print("pulte_ats_after", pulte_builder.get("optimized_ats_score"))
+    print("pulte_ats_improvement", pulte_builder.get("ats_improvement_percentage"))
+    print("pulte_terms_already_present", pulte_builder.get("terms_already_present"))
+    print("pulte_terms_repositioned", pulte_builder.get("terms_repositioned"))
+    print("pulte_terms_newly_added", pulte_builder.get("terms_newly_added_from_resume_evidence"))
+    print("pulte_transferable_terms", pulte_builder.get("transferable_terms_used_carefully"))
+    print("pulte_terms_not_added", pulte_builder.get("terms_not_added_due_to_insufficient_evidence"))
+    print("pulte_unsupported_terms", pulte_builder.get("unsupported_added_keywords"))
+    print("pulte_category_improvements", [f"{item.get('category')}:+{item.get('delta')}" for item in pulte_builder.get("category_improvements", [])])
+    print("pulte_onboarding_not_safely_added", "Onboarding" not in pulte_builder.get("terms_newly_added_from_resume_evidence", []) + pulte_builder.get("transferable_terms_used_carefully", []))
+    print("pulte_client_onboarding_not_safely_added", "Client Onboarding" not in pulte_builder.get("terms_newly_added_from_resume_evidence", []) + pulte_builder.get("transferable_terms_used_carefully", []))
+    print("pulte_category_management_transferable", "Category Management" in pulte_builder.get("transferable_terms_used_carefully", []) or "G&A Category Management" in pulte_builder.get("transferable_terms_used_carefully", []))
+    visible_detail_terms = {
+        item.get("term", "")
+        for item in pulte_builder.get("terms_newly_added_details", []) + pulte_builder.get("transferable_terms_used_carefully_details", [])
+        if item.get("source_resume_evidence") and item.get("support_level")
+    }
+    safe_terms = set(pulte_builder.get("terms_newly_added_from_resume_evidence", []) + pulte_builder.get("transferable_terms_used_carefully", []))
+    print("pulte_safe_terms_have_visible_evidence", safe_terms.issubset(visible_detail_terms))
+
 
 if __name__ == "__main__":
     main()
