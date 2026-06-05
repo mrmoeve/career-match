@@ -2102,3 +2102,841 @@
 2026-06-04 18:37:13,700 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
 2026-06-04 18:37:13,729 INFO [career_match] App booted. version=v0.4.0-quality pid=54777
 2026-06-04 18:37:13,730 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=home
+2026-06-04 20:44:52,413 INFO [career_match] Database engine active: sqlite (applications.db)
+2026-06-04 20:44:52,540 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:44:52,541 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:44:52,542 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:44:52,543 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:44:52,640 INFO [career_match] App booted. version=v0.4.0-quality pid=69337
+2026-06-04 20:44:52,641 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=home
+2026-06-04 20:44:52,740 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:44:52,741 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:44:52,742 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:44:52,743 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:44:52,769 INFO [career_match] App booted. version=v0.4.0-quality pid=69337
+2026-06-04 20:44:52,770 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=home
+2026-06-04 20:44:52,775 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:44:52,776 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:44:52,776 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:44:52,777 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:44:52,803 INFO [career_match] App booted. version=v0.4.0-quality pid=69337
+2026-06-04 20:44:52,804 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=auth
+2026-06-04 20:44:52,905 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:44:52,905 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:44:52,906 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:44:52,907 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:44:52,934 INFO [career_match] App booted. version=v0.4.0-quality pid=69337
+2026-06-04 20:44:52,935 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=auth
+2026-06-04 20:44:52,990 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:44:52,990 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:44:52,991 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:44:52,992 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:44:53,017 INFO [career_match] App booted. version=v0.4.0-quality pid=69337
+2026-06-04 20:44:53,019 INFO [career_match] Startup auth state. current_user_email=career-match-ae686267@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:44:53,147 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:44:53,148 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:44:53,148 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:44:53,149 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:44:53,175 INFO [career_match] App booted. version=v0.4.0-quality pid=69337
+2026-06-04 20:44:53,176 INFO [career_match] Startup auth state. current_user_email=career-match-ae686267@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:44:53,282 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:44:53,283 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:44:53,284 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:44:53,285 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:44:53,312 INFO [career_match] App booted. version=v0.4.0-quality pid=69337
+2026-06-04 20:44:53,313 INFO [career_match] Startup auth state. current_user_email=career-match-ae686267@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:44:53,428 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:44:53,429 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:44:53,430 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:44:53,430 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:44:53,459 INFO [career_match] App booted. version=v0.4.0-quality pid=69337
+2026-06-04 20:44:53,460 INFO [career_match] Startup auth state. current_user_email=career-match-ae686267@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:44:53,466 INFO [career_match] Starting analysis workflow. current_user_email=career-match-ae686267@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=free
+2026-06-04 20:44:53,570 INFO [career_match] Analysis workflow completed successfully. current_user_email=career-match-ae686267@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=free
+2026-06-04 20:44:53,582 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:44:53,589 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=104
+2026-06-04 20:44:53,590 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=104
+2026-06-04 20:44:53,591 INFO [career_match] resume_coach_chat_opened user_email=career-match-ae686267@example.com analysis_id=104
+2026-06-04 20:44:53,622 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:44:53,864 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:44:53,865 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:44:53,865 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:44:53,866 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:44:53,893 INFO [career_match] App booted. version=v0.4.0-quality pid=69337
+2026-06-04 20:44:53,894 INFO [career_match] Startup auth state. current_user_email=career-match-ae686267@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:44:53,911 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:44:53,919 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=104
+2026-06-04 20:44:53,921 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=104
+2026-06-04 20:44:53,946 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:44:54,480 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:44:54,482 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:44:54,483 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:44:54,483 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:44:54,517 INFO [career_match] App booted. version=v0.4.0-quality pid=69337
+2026-06-04 20:44:54,518 INFO [career_match] Startup auth state. current_user_email=career-match-ae686267@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:44:54,528 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:44:54,529 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:44:54,530 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:44:54,530 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:44:54,563 INFO [career_match] App booted. version=v0.4.0-quality pid=69337
+2026-06-04 20:44:54,564 INFO [career_match] Startup auth state. current_user_email=career-match-ae686267@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:44:54,575 INFO [career_match] Stripe webhook applied one-time assessment credit. user_email=career-match-ae686267@example.com session_id=test_credit_session
+2026-06-04 20:44:54,722 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:44:54,722 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:44:54,723 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:44:54,724 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:44:54,756 INFO [career_match] App booted. version=v0.4.0-quality pid=69337
+2026-06-04 20:44:54,758 INFO [career_match] Startup auth state. current_user_email=career-match-ae686267@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:44:54,775 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:44:54,782 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=104
+2026-06-04 20:44:54,784 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=104
+2026-06-04 20:44:54,811 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:44:55,041 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:44:55,042 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:44:55,042 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:44:55,043 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:44:55,075 INFO [career_match] App booted. version=v0.4.0-quality pid=69337
+2026-06-04 20:44:55,076 INFO [career_match] Startup auth state. current_user_email=career-match-ae686267@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:44:55,083 INFO [career_match] Starting analysis workflow. current_user_email=career-match-ae686267@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=credit
+2026-06-04 20:44:55,181 INFO [career_match] Analysis workflow completed successfully. current_user_email=career-match-ae686267@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=free
+2026-06-04 20:44:55,193 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:44:55,200 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=105
+2026-06-04 20:44:55,202 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=105
+2026-06-04 20:44:55,202 INFO [career_match] resume_coach_chat_opened user_email=career-match-ae686267@example.com analysis_id=105
+2026-06-04 20:44:55,232 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:44:55,365 INFO [career_match] Stripe webhook activated Pro subscription. user_email=career-match-ae686267@example.com customer_id=cus_test_123 subscription_id=sub_test_123 period_end=2026-07-04T12:00:00
+2026-06-04 20:44:55,468 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:44:55,469 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:44:55,470 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:44:55,470 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:44:55,502 INFO [career_match] App booted. version=v0.4.0-quality pid=69337
+2026-06-04 20:44:55,504 INFO [career_match] Startup auth state. current_user_email=career-match-ae686267@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:44:55,522 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:44:55,529 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=105
+2026-06-04 20:44:55,531 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=105
+2026-06-04 20:44:55,560 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:44:55,789 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:44:55,789 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:44:55,790 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:44:55,791 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:44:55,823 INFO [career_match] App booted. version=v0.4.0-quality pid=69337
+2026-06-04 20:44:55,824 INFO [career_match] Startup auth state. current_user_email=career-match-ae686267@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:44:55,832 INFO [career_match] Starting analysis workflow. current_user_email=career-match-ae686267@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=pro
+2026-06-04 20:44:55,931 INFO [career_match] Analysis workflow completed successfully. current_user_email=career-match-ae686267@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=pro
+2026-06-04 20:44:55,943 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:44:55,950 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=106
+2026-06-04 20:44:55,951 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=106
+2026-06-04 20:44:55,952 INFO [career_match] resume_coach_chat_opened user_email=career-match-ae686267@example.com analysis_id=106
+2026-06-04 20:44:55,978 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:44:56,197 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:44:56,198 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:44:56,198 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:44:56,199 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:44:56,229 INFO [career_match] App booted. version=v0.4.0-quality pid=69337
+2026-06-04 20:44:56,231 INFO [career_match] Startup auth state. current_user_email=career-match-ae686267@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:44:57,512 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:44:57,512 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:44:57,513 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:44:57,514 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:44:57,560 INFO [career_match] App booted. version=v0.4.0-quality pid=69337
+2026-06-04 20:44:57,562 INFO [career_match] Startup auth state. current_user_email=career-match-ae686267@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:44:57,633 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:44:57,634 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:44:57,634 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:44:57,635 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:44:57,666 INFO [career_match] App booted. version=v0.4.0-quality pid=69337
+2026-06-04 20:44:57,668 INFO [career_match] Startup auth state. current_user_email=career-match-ae686267@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:44:57,688 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:44:57,696 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=106
+2026-06-04 20:44:57,697 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=106
+2026-06-04 20:44:57,698 INFO [career_match] resume_coach_chat_opened user_email=career-match-ae686267@example.com analysis_id=106
+2026-06-04 20:44:57,725 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:45:07,177 INFO [career_match] Database engine active: sqlite (applications.db)
+2026-06-04 20:45:07,282 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:45:07,284 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:45:07,284 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:45:07,285 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:45:07,389 INFO [career_match] App booted. version=v0.4.0-quality pid=69579
+2026-06-04 20:45:07,390 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=home
+2026-06-04 20:45:07,498 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:45:07,499 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:45:07,499 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:45:07,500 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:45:07,527 INFO [career_match] App booted. version=v0.4.0-quality pid=69579
+2026-06-04 20:45:07,529 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=home
+2026-06-04 20:45:07,534 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:45:07,535 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:45:07,535 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:45:07,536 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:45:07,564 INFO [career_match] App booted. version=v0.4.0-quality pid=69579
+2026-06-04 20:45:07,564 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=auth
+2026-06-04 20:45:07,667 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:45:07,668 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:45:07,668 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:45:07,669 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:45:07,700 INFO [career_match] App booted. version=v0.4.0-quality pid=69579
+2026-06-04 20:45:07,700 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=auth
+2026-06-04 20:45:07,755 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:45:07,755 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:45:07,756 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:45:07,756 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:45:07,784 INFO [career_match] App booted. version=v0.4.0-quality pid=69579
+2026-06-04 20:45:07,786 INFO [career_match] Startup auth state. current_user_email=career-match-e25f7a5d@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:45:07,913 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:45:07,913 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:45:07,914 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:45:07,914 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:45:07,942 INFO [career_match] App booted. version=v0.4.0-quality pid=69579
+2026-06-04 20:45:07,943 INFO [career_match] Startup auth state. current_user_email=career-match-e25f7a5d@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:45:08,045 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:45:08,046 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:45:08,046 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:45:08,047 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:45:08,073 INFO [career_match] App booted. version=v0.4.0-quality pid=69579
+2026-06-04 20:45:08,074 INFO [career_match] Startup auth state. current_user_email=career-match-e25f7a5d@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:45:08,182 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:45:08,183 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:45:08,183 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:45:08,184 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:45:08,210 INFO [career_match] App booted. version=v0.4.0-quality pid=69579
+2026-06-04 20:45:08,212 INFO [career_match] Startup auth state. current_user_email=career-match-e25f7a5d@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:45:08,218 INFO [career_match] Starting analysis workflow. current_user_email=career-match-e25f7a5d@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=free
+2026-06-04 20:45:08,317 INFO [career_match] Analysis workflow completed successfully. current_user_email=career-match-e25f7a5d@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=free
+2026-06-04 20:45:08,328 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:45:08,335 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=107
+2026-06-04 20:45:08,337 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=107
+2026-06-04 20:45:08,337 INFO [career_match] resume_coach_chat_opened user_email=career-match-e25f7a5d@example.com analysis_id=107
+2026-06-04 20:45:08,367 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:45:08,594 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:45:08,595 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:45:08,595 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:45:08,596 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:45:08,628 INFO [career_match] App booted. version=v0.4.0-quality pid=69579
+2026-06-04 20:45:08,630 INFO [career_match] Startup auth state. current_user_email=career-match-e25f7a5d@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:45:08,647 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:45:08,656 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=107
+2026-06-04 20:45:08,657 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=107
+2026-06-04 20:45:08,682 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:45:08,905 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:45:08,906 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:45:08,907 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:45:08,907 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:45:08,940 INFO [career_match] App booted. version=v0.4.0-quality pid=69579
+2026-06-04 20:45:08,941 INFO [career_match] Startup auth state. current_user_email=career-match-e25f7a5d@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:45:08,949 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:45:08,950 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:45:08,951 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:45:08,951 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:45:08,979 INFO [career_match] App booted. version=v0.4.0-quality pid=69579
+2026-06-04 20:45:08,980 INFO [career_match] Startup auth state. current_user_email=career-match-e25f7a5d@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:45:08,989 INFO [career_match] Stripe webhook applied one-time assessment credit. user_email=career-match-e25f7a5d@example.com session_id=test_credit_session
+2026-06-04 20:45:09,118 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:45:09,119 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:45:09,119 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:45:09,120 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:45:09,150 INFO [career_match] App booted. version=v0.4.0-quality pid=69579
+2026-06-04 20:45:09,151 INFO [career_match] Startup auth state. current_user_email=career-match-e25f7a5d@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:45:09,168 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:45:09,174 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=107
+2026-06-04 20:45:09,176 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=107
+2026-06-04 20:45:09,201 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:45:09,416 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:45:09,417 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:45:09,417 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:45:09,418 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:45:09,448 INFO [career_match] App booted. version=v0.4.0-quality pid=69579
+2026-06-04 20:45:09,450 INFO [career_match] Startup auth state. current_user_email=career-match-e25f7a5d@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:45:09,456 INFO [career_match] Starting analysis workflow. current_user_email=career-match-e25f7a5d@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=credit
+2026-06-04 20:45:09,550 INFO [career_match] Analysis workflow completed successfully. current_user_email=career-match-e25f7a5d@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=free
+2026-06-04 20:45:09,562 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:45:09,568 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=108
+2026-06-04 20:45:09,570 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=108
+2026-06-04 20:45:09,570 INFO [career_match] resume_coach_chat_opened user_email=career-match-e25f7a5d@example.com analysis_id=108
+2026-06-04 20:45:09,596 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:45:09,719 INFO [career_match] Stripe webhook activated Pro subscription. user_email=career-match-e25f7a5d@example.com customer_id=cus_test_123 subscription_id=sub_test_123 period_end=2026-07-04T12:00:00
+2026-06-04 20:45:09,817 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:45:09,818 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:45:09,819 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:45:09,819 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:45:09,849 INFO [career_match] App booted. version=v0.4.0-quality pid=69579
+2026-06-04 20:45:09,850 INFO [career_match] Startup auth state. current_user_email=career-match-e25f7a5d@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:45:09,866 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:45:09,873 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=108
+2026-06-04 20:45:09,875 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=108
+2026-06-04 20:45:09,900 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:45:10,116 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:45:10,116 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:45:10,117 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:45:10,118 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:45:10,149 INFO [career_match] App booted. version=v0.4.0-quality pid=69579
+2026-06-04 20:45:10,150 INFO [career_match] Startup auth state. current_user_email=career-match-e25f7a5d@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:45:10,157 INFO [career_match] Starting analysis workflow. current_user_email=career-match-e25f7a5d@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=pro
+2026-06-04 20:45:10,250 INFO [career_match] Analysis workflow completed successfully. current_user_email=career-match-e25f7a5d@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=pro
+2026-06-04 20:45:10,262 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:45:10,268 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=109
+2026-06-04 20:45:10,270 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=109
+2026-06-04 20:45:10,272 INFO [career_match] resume_coach_chat_opened user_email=career-match-e25f7a5d@example.com analysis_id=109
+2026-06-04 20:45:10,297 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:45:10,515 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:45:10,515 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:45:10,516 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:45:10,516 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:45:10,547 INFO [career_match] App booted. version=v0.4.0-quality pid=69579
+2026-06-04 20:45:10,548 INFO [career_match] Startup auth state. current_user_email=career-match-e25f7a5d@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:45:11,235 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:45:11,235 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:45:11,236 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:45:11,236 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:45:11,269 INFO [career_match] App booted. version=v0.4.0-quality pid=69579
+2026-06-04 20:45:11,270 INFO [career_match] Startup auth state. current_user_email=career-match-e25f7a5d@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:45:11,323 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:45:11,324 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:45:11,324 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:45:11,325 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:45:11,356 INFO [career_match] App booted. version=v0.4.0-quality pid=69579
+2026-06-04 20:45:11,357 INFO [career_match] Startup auth state. current_user_email=career-match-e25f7a5d@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:45:11,377 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:45:11,384 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=109
+2026-06-04 20:45:11,385 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=109
+2026-06-04 20:45:11,385 INFO [career_match] resume_coach_chat_opened user_email=career-match-e25f7a5d@example.com analysis_id=109
+2026-06-04 20:45:11,410 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:51:25,454 INFO [career_match] Database engine active: sqlite (applications.db)
+2026-06-04 20:51:25,601 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:51:25,602 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:51:25,603 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:51:25,604 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:51:25,717 INFO [career_match] App booted. version=v0.4.0-quality pid=70614
+2026-06-04 20:51:25,718 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=home
+2026-06-04 20:51:25,821 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:51:25,822 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:51:25,823 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:51:25,823 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:51:25,852 INFO [career_match] App booted. version=v0.4.0-quality pid=70614
+2026-06-04 20:51:25,853 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=home
+2026-06-04 20:51:25,858 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:51:25,859 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:51:25,859 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:51:25,860 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:51:25,906 INFO [career_match] App booted. version=v0.4.0-quality pid=70614
+2026-06-04 20:51:25,908 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=auth
+2026-06-04 20:51:26,022 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:51:26,022 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:51:26,023 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:51:26,024 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:51:26,051 INFO [career_match] App booted. version=v0.4.0-quality pid=70614
+2026-06-04 20:51:26,052 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=auth
+2026-06-04 20:51:26,107 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:51:26,108 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:51:26,108 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:51:26,109 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:51:26,135 INFO [career_match] App booted. version=v0.4.0-quality pid=70614
+2026-06-04 20:51:26,136 INFO [career_match] Startup auth state. current_user_email=career-match-0fc47e93@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:51:26,266 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:51:26,267 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:51:26,267 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:51:26,268 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:51:26,295 INFO [career_match] App booted. version=v0.4.0-quality pid=70614
+2026-06-04 20:51:26,296 INFO [career_match] Startup auth state. current_user_email=career-match-0fc47e93@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:51:26,399 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:51:26,400 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:51:26,400 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:51:26,401 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:51:26,427 INFO [career_match] App booted. version=v0.4.0-quality pid=70614
+2026-06-04 20:51:26,429 INFO [career_match] Startup auth state. current_user_email=career-match-0fc47e93@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:51:26,570 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:51:26,572 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:51:26,573 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:51:26,574 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:51:26,617 INFO [career_match] App booted. version=v0.4.0-quality pid=70614
+2026-06-04 20:51:26,618 INFO [career_match] Startup auth state. current_user_email=career-match-0fc47e93@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:51:26,625 INFO [career_match] Starting analysis workflow. current_user_email=career-match-0fc47e93@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=free
+2026-06-04 20:51:26,747 INFO [career_match] Analysis workflow completed successfully. current_user_email=career-match-0fc47e93@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=free
+2026-06-04 20:51:26,762 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:51:26,770 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=110
+2026-06-04 20:51:26,772 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=110
+2026-06-04 20:51:26,772 INFO [career_match] resume_coach_chat_opened user_email=career-match-0fc47e93@example.com analysis_id=110
+2026-06-04 20:51:26,807 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:51:27,079 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:51:27,080 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:51:27,080 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:51:27,081 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:51:27,109 INFO [career_match] App booted. version=v0.4.0-quality pid=70614
+2026-06-04 20:51:27,110 INFO [career_match] Startup auth state. current_user_email=career-match-0fc47e93@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:51:27,128 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:51:27,136 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=110
+2026-06-04 20:51:27,137 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=110
+2026-06-04 20:51:27,163 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:51:27,388 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:51:27,389 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:51:27,389 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:51:27,390 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:51:27,418 INFO [career_match] App booted. version=v0.4.0-quality pid=70614
+2026-06-04 20:51:27,419 INFO [career_match] Startup auth state. current_user_email=career-match-0fc47e93@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:51:27,428 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:51:27,429 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:51:27,429 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:51:27,430 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:51:27,457 INFO [career_match] App booted. version=v0.4.0-quality pid=70614
+2026-06-04 20:51:27,458 INFO [career_match] Startup auth state. current_user_email=career-match-0fc47e93@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:51:27,468 INFO [career_match] Stripe webhook applied one-time assessment credit. user_email=career-match-0fc47e93@example.com session_id=test_credit_session
+2026-06-04 20:51:27,634 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:51:27,634 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:51:27,635 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:51:27,637 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:51:27,676 INFO [career_match] App booted. version=v0.4.0-quality pid=70614
+2026-06-04 20:51:27,677 INFO [career_match] Startup auth state. current_user_email=career-match-0fc47e93@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:51:27,693 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:51:27,700 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=110
+2026-06-04 20:51:27,701 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=110
+2026-06-04 20:51:27,726 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:51:27,952 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:51:27,953 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:51:27,953 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:51:27,954 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:51:27,986 INFO [career_match] App booted. version=v0.4.0-quality pid=70614
+2026-06-04 20:51:27,987 INFO [career_match] Startup auth state. current_user_email=career-match-0fc47e93@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:51:27,993 INFO [career_match] Starting analysis workflow. current_user_email=career-match-0fc47e93@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=credit
+2026-06-04 20:51:28,112 INFO [career_match] Analysis workflow completed successfully. current_user_email=career-match-0fc47e93@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=free
+2026-06-04 20:51:28,124 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:51:28,130 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=111
+2026-06-04 20:51:28,132 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=111
+2026-06-04 20:51:28,132 INFO [career_match] resume_coach_chat_opened user_email=career-match-0fc47e93@example.com analysis_id=111
+2026-06-04 20:51:28,157 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:51:28,276 INFO [career_match] Stripe webhook activated Pro subscription. user_email=career-match-0fc47e93@example.com customer_id=cus_test_123 subscription_id=sub_test_123 period_end=2026-07-04T12:00:00
+2026-06-04 20:51:28,375 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:51:28,376 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:51:28,377 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:51:28,378 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:51:28,406 INFO [career_match] App booted. version=v0.4.0-quality pid=70614
+2026-06-04 20:51:28,407 INFO [career_match] Startup auth state. current_user_email=career-match-0fc47e93@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:51:28,423 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:51:28,431 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=111
+2026-06-04 20:51:28,432 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=111
+2026-06-04 20:51:28,457 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:51:28,674 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:51:28,674 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:51:28,675 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:51:28,675 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:51:28,704 INFO [career_match] App booted. version=v0.4.0-quality pid=70614
+2026-06-04 20:51:28,706 INFO [career_match] Startup auth state. current_user_email=career-match-0fc47e93@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:51:28,712 INFO [career_match] Starting analysis workflow. current_user_email=career-match-0fc47e93@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=pro
+2026-06-04 20:51:28,804 INFO [career_match] Analysis workflow completed successfully. current_user_email=career-match-0fc47e93@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=pro
+2026-06-04 20:51:28,816 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:51:28,823 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=112
+2026-06-04 20:51:28,824 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=112
+2026-06-04 20:51:28,824 INFO [career_match] resume_coach_chat_opened user_email=career-match-0fc47e93@example.com analysis_id=112
+2026-06-04 20:51:28,849 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-04 20:51:29,072 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:51:29,073 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:51:29,073 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:51:29,074 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:51:29,105 INFO [career_match] App booted. version=v0.4.0-quality pid=70614
+2026-06-04 20:51:29,107 INFO [career_match] Startup auth state. current_user_email=career-match-0fc47e93@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:51:29,155 INFO [career_match] Historical analysis backfilled with current compare pipeline. application_id=112 resume_text_exists=True job_text_exists=True
+2026-06-04 20:51:29,196 INFO [career_match] Historical analysis backfilled with current compare pipeline. application_id=111 resume_text_exists=True job_text_exists=True
+2026-06-04 20:51:29,238 INFO [career_match] Historical analysis backfilled with current compare pipeline. application_id=110 resume_text_exists=True job_text_exists=True
+2026-06-04 20:51:29,921 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:51:29,922 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:51:29,923 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:51:29,923 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:51:29,956 INFO [career_match] App booted. version=v0.4.0-quality pid=70614
+2026-06-04 20:51:29,957 INFO [career_match] Startup auth state. current_user_email=career-match-0fc47e93@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:51:30,004 INFO [career_match] Historical analysis backfilled with current compare pipeline. application_id=112 resume_text_exists=True job_text_exists=True
+2026-06-04 20:51:30,045 INFO [career_match] Historical analysis backfilled with current compare pipeline. application_id=111 resume_text_exists=True job_text_exists=True
+2026-06-04 20:51:30,086 INFO [career_match] Historical analysis backfilled with current compare pipeline. application_id=110 resume_text_exists=True job_text_exists=True
+2026-06-04 20:51:30,093 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-04 20:51:30,094 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-04 20:51:30,094 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-04 20:51:30,095 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-04 20:51:30,124 INFO [career_match] App booted. version=v0.4.0-quality pid=70614
+2026-06-04 20:51:30,125 INFO [career_match] Startup auth state. current_user_email=career-match-0fc47e93@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-04 20:51:30,145 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-04 20:51:30,152 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=112
+2026-06-04 20:51:30,153 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=112
+2026-06-04 20:51:30,153 INFO [career_match] resume_coach_chat_opened user_email=career-match-0fc47e93@example.com analysis_id=112
+2026-06-04 20:51:30,179 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-05 10:01:56,742 INFO [career_match] Database engine active: sqlite (applications.db)
+2026-06-05 10:01:56,918 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:01:56,922 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:01:56,923 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:01:56,926 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:01:57,059 INFO [career_match] App booted. version=v0.4.0-quality pid=90021
+2026-06-05 10:01:57,060 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=home
+2026-06-05 10:01:57,189 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:01:57,190 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:01:57,190 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:01:57,191 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:01:57,216 INFO [career_match] App booted. version=v0.4.0-quality pid=90021
+2026-06-05 10:01:57,217 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=home
+2026-06-05 10:01:57,222 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:01:57,223 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:01:57,223 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:01:57,224 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:01:57,246 INFO [career_match] App booted. version=v0.4.0-quality pid=90021
+2026-06-05 10:01:57,247 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=auth
+2026-06-05 10:01:57,352 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:01:57,353 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:01:57,353 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:01:57,354 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:01:57,385 INFO [career_match] App booted. version=v0.4.0-quality pid=90021
+2026-06-05 10:01:57,386 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=auth
+2026-06-05 10:01:57,452 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:01:57,453 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:01:57,454 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:01:57,455 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:01:57,478 INFO [career_match] App booted. version=v0.4.0-quality pid=90021
+2026-06-05 10:01:57,479 INFO [career_match] Startup auth state. current_user_email=career-match-fd58b878@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:01:57,683 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:01:57,684 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:01:57,684 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:01:57,685 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:01:57,708 INFO [career_match] App booted. version=v0.4.0-quality pid=90021
+2026-06-05 10:01:57,709 INFO [career_match] Startup auth state. current_user_email=career-match-fd58b878@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:01:57,712 INFO [career_match] Resetting cached analysis outputs. reason=resume_uploaded
+2026-06-05 10:01:57,820 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:01:57,820 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:01:57,821 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:01:57,822 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:01:57,844 INFO [career_match] App booted. version=v0.4.0-quality pid=90021
+2026-06-05 10:01:57,845 INFO [career_match] Startup auth state. current_user_email=career-match-fd58b878@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:01:57,961 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:01:57,962 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:01:57,962 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:01:57,963 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:01:57,986 INFO [career_match] App booted. version=v0.4.0-quality pid=90021
+2026-06-05 10:01:57,987 INFO [career_match] Startup auth state. current_user_email=career-match-fd58b878@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:01:57,993 INFO [career_match] Starting analysis workflow. current_user_email=career-match-fd58b878@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=free
+2026-06-05 10:01:58,146 INFO [career_match] Analysis workflow completed successfully. current_user_email=career-match-fd58b878@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=free
+2026-06-05 10:01:58,157 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-05 10:01:58,164 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=113
+2026-06-05 10:01:58,166 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=113
+2026-06-05 10:01:58,166 INFO [career_match] resume_coach_chat_opened user_email=career-match-fd58b878@example.com analysis_id=113
+2026-06-05 10:01:58,199 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-05 10:01:58,454 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:01:58,454 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:01:58,455 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:01:58,456 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:01:58,483 INFO [career_match] App booted. version=v0.4.0-quality pid=90021
+2026-06-05 10:01:58,485 INFO [career_match] Startup auth state. current_user_email=career-match-fd58b878@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:01:58,503 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-05 10:01:58,511 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=113
+2026-06-05 10:01:58,513 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=113
+2026-06-05 10:01:58,540 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-05 10:01:58,813 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:01:58,814 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:01:58,815 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:01:58,815 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:01:58,845 INFO [career_match] App booted. version=v0.4.0-quality pid=90021
+2026-06-05 10:01:58,846 INFO [career_match] Startup auth state. current_user_email=career-match-fd58b878@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:01:58,856 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:01:58,856 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:01:58,857 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:01:58,857 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:01:58,882 INFO [career_match] App booted. version=v0.4.0-quality pid=90021
+2026-06-05 10:01:58,883 INFO [career_match] Startup auth state. current_user_email=career-match-fd58b878@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:01:58,893 INFO [career_match] Stripe webhook applied one-time assessment credit. user_email=career-match-fd58b878@example.com session_id=test_credit_session
+2026-06-05 10:01:58,998 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:01:58,999 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:01:58,999 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:01:59,000 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:01:59,026 INFO [career_match] App booted. version=v0.4.0-quality pid=90021
+2026-06-05 10:01:59,028 INFO [career_match] Startup auth state. current_user_email=career-match-fd58b878@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:01:59,044 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-05 10:01:59,051 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=113
+2026-06-05 10:01:59,053 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=113
+2026-06-05 10:01:59,078 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-05 10:01:59,314 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:01:59,315 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:01:59,315 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:01:59,316 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:01:59,344 INFO [career_match] App booted. version=v0.4.0-quality pid=90021
+2026-06-05 10:01:59,345 INFO [career_match] Startup auth state. current_user_email=career-match-fd58b878@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:01:59,353 INFO [career_match] Starting analysis workflow. current_user_email=career-match-fd58b878@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=credit
+2026-06-05 10:01:59,479 INFO [career_match] Analysis workflow completed successfully. current_user_email=career-match-fd58b878@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=free
+2026-06-05 10:01:59,491 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-05 10:01:59,498 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=114
+2026-06-05 10:01:59,499 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=114
+2026-06-05 10:01:59,500 INFO [career_match] resume_coach_chat_opened user_email=career-match-fd58b878@example.com analysis_id=114
+2026-06-05 10:01:59,526 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-05 10:01:59,654 INFO [career_match] Stripe webhook activated Pro subscription. user_email=career-match-fd58b878@example.com customer_id=cus_test_123 subscription_id=sub_test_123 period_end=2026-07-04T12:00:00
+2026-06-05 10:01:59,764 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:01:59,765 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:01:59,765 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:01:59,766 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:01:59,794 INFO [career_match] App booted. version=v0.4.0-quality pid=90021
+2026-06-05 10:01:59,795 INFO [career_match] Startup auth state. current_user_email=career-match-fd58b878@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:01:59,811 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-05 10:01:59,819 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=114
+2026-06-05 10:01:59,820 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=114
+2026-06-05 10:01:59,845 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-05 10:02:00,085 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:02:00,086 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:02:00,087 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:02:00,087 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:02:00,115 INFO [career_match] App booted. version=v0.4.0-quality pid=90021
+2026-06-05 10:02:00,116 INFO [career_match] Startup auth state. current_user_email=career-match-fd58b878@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:02:00,124 INFO [career_match] Starting analysis workflow. current_user_email=career-match-fd58b878@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=pro
+2026-06-05 10:02:00,252 INFO [career_match] Analysis workflow completed successfully. current_user_email=career-match-fd58b878@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=pro
+2026-06-05 10:02:00,264 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-05 10:02:00,271 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=115
+2026-06-05 10:02:00,272 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=115
+2026-06-05 10:02:00,273 INFO [career_match] resume_coach_chat_opened user_email=career-match-fd58b878@example.com analysis_id=115
+2026-06-05 10:02:00,299 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-05 10:02:00,528 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:02:00,529 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:02:00,529 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:02:00,530 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:02:00,556 INFO [career_match] App booted. version=v0.4.0-quality pid=90021
+2026-06-05 10:02:00,557 INFO [career_match] Startup auth state. current_user_email=career-match-fd58b878@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:02:00,620 INFO [career_match] Historical analysis backfilled with current compare pipeline. application_id=115 resume_text_exists=True job_text_exists=True
+2026-06-05 10:02:00,676 INFO [career_match] Historical analysis backfilled with current compare pipeline. application_id=114 resume_text_exists=True job_text_exists=True
+2026-06-05 10:02:00,733 INFO [career_match] Historical analysis backfilled with current compare pipeline. application_id=113 resume_text_exists=True job_text_exists=True
+2026-06-05 10:02:02,005 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:02:02,006 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:02:02,006 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:02:02,007 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:02:02,033 INFO [career_match] App booted. version=v0.4.0-quality pid=90021
+2026-06-05 10:02:02,035 INFO [career_match] Startup auth state. current_user_email=career-match-fd58b878@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:02:02,093 INFO [career_match] Historical analysis backfilled with current compare pipeline. application_id=115 resume_text_exists=True job_text_exists=True
+2026-06-05 10:02:02,148 INFO [career_match] Historical analysis backfilled with current compare pipeline. application_id=114 resume_text_exists=True job_text_exists=True
+2026-06-05 10:02:02,204 INFO [career_match] Historical analysis backfilled with current compare pipeline. application_id=113 resume_text_exists=True job_text_exists=True
+2026-06-05 10:02:02,211 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:02:02,212 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:02:02,212 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:02:02,213 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:02:02,245 INFO [career_match] App booted. version=v0.4.0-quality pid=90021
+2026-06-05 10:02:02,246 INFO [career_match] Startup auth state. current_user_email=career-match-fd58b878@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:02:02,267 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=match
+2026-06-05 10:02:02,278 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=115
+2026-06-05 10:02:02,280 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=115
+2026-06-05 10:02:02,280 INFO [career_match] resume_coach_chat_opened user_email=career-match-fd58b878@example.com analysis_id=115
+2026-06-05 10:02:02,310 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success', 'account_management', 'stakeholder_management'] section=resume_builder
+2026-06-05 10:04:59,947 INFO [career_match] Database engine active: sqlite (applications.db)
+2026-06-05 10:04:59,953 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:04:59,955 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:04:59,955 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:04:59,956 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:05:00,054 INFO [career_match] App booted. version=v0.4.0-quality pid=91462
+2026-06-05 10:05:00,056 INFO [career_match] Startup auth state. current_user_email=mrmoeve@gmail.com is_admin=True allowlisted=True authorized=True view=app
+2026-06-05 10:05:14,840 INFO [career_match] Database engine active: sqlite (applications.db)
+2026-06-05 10:05:14,846 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:05:14,847 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:05:14,848 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:05:14,848 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:05:14,935 INFO [career_match] App booted. version=v0.4.0-quality pid=91487
+2026-06-05 10:05:14,936 INFO [career_match] Startup auth state. current_user_email=mrmoeve@gmail.com is_admin=True allowlisted=True authorized=True view=app
+2026-06-05 10:05:15,072 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:05:15,073 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:05:15,073 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:05:15,074 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:05:15,097 INFO [career_match] App booted. version=v0.4.0-quality pid=91487
+2026-06-05 10:05:15,098 INFO [career_match] Startup auth state. current_user_email=mrmoeve@gmail.com is_admin=True allowlisted=True authorized=True view=app
+2026-06-05 10:05:15,102 INFO [career_match] Resetting cached analysis outputs. reason=resume_uploaded
+2026-06-05 10:05:15,204 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:05:15,205 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:05:15,206 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:05:15,206 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:05:15,229 INFO [career_match] App booted. version=v0.4.0-quality pid=91487
+2026-06-05 10:05:15,230 INFO [career_match] Startup auth state. current_user_email=mrmoeve@gmail.com is_admin=True allowlisted=True authorized=True view=app
+2026-06-05 10:05:15,334 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:05:15,335 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:05:15,336 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:05:15,336 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:05:15,359 INFO [career_match] App booted. version=v0.4.0-quality pid=91487
+2026-06-05 10:05:15,360 INFO [career_match] Startup auth state. current_user_email=mrmoeve@gmail.com is_admin=True allowlisted=True authorized=True view=app
+2026-06-05 10:05:15,366 INFO [career_match] Starting analysis workflow. current_user_email=mrmoeve@gmail.com is_admin=True admin_test_mode=True paywall_bypassed=True payment_type_used=admin_test
+2026-06-05 10:05:15,407 INFO [career_match] Analysis workflow completed successfully. current_user_email=mrmoeve@gmail.com is_admin=True admin_test_mode=True paywall_bypassed=True payment_type_used=admin_test
+2026-06-05 10:05:15,423 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=2 recommendation_categories=['customer_success', 'data_analytics'] section=match
+2026-06-05 10:05:15,430 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=116
+2026-06-05 10:05:15,431 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=116
+2026-06-05 10:05:15,432 INFO [career_match] resume_coach_chat_opened user_email=mrmoeve@gmail.com analysis_id=116
+2026-06-05 10:05:15,463 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=2 recommendation_categories=['customer_success', 'data_analytics'] section=resume_builder
+2026-06-05 10:05:43,945 INFO [career_match] Database engine active: sqlite (applications.db)
+2026-06-05 10:05:43,951 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:05:43,953 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:05:43,953 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:05:43,954 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:05:44,062 INFO [career_match] App booted. version=v0.4.0-quality pid=91536
+2026-06-05 10:05:44,064 INFO [career_match] Startup auth state. current_user_email=mrmoeve@gmail.com is_admin=True allowlisted=True authorized=True view=app
+2026-06-05 10:05:44,209 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:05:44,210 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:05:44,211 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:05:44,211 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:05:44,238 INFO [career_match] App booted. version=v0.4.0-quality pid=91536
+2026-06-05 10:05:44,239 INFO [career_match] Startup auth state. current_user_email=mrmoeve@gmail.com is_admin=True allowlisted=True authorized=True view=app
+2026-06-05 10:05:44,243 INFO [career_match] Resetting cached analysis outputs. reason=resume_uploaded
+2026-06-05 10:05:44,356 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:05:44,357 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:05:44,358 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:05:44,358 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:05:44,383 INFO [career_match] App booted. version=v0.4.0-quality pid=91536
+2026-06-05 10:05:44,384 INFO [career_match] Startup auth state. current_user_email=mrmoeve@gmail.com is_admin=True allowlisted=True authorized=True view=app
+2026-06-05 10:05:44,497 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:05:44,498 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:05:44,498 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:05:44,499 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:05:44,523 INFO [career_match] App booted. version=v0.4.0-quality pid=91536
+2026-06-05 10:05:44,525 INFO [career_match] Startup auth state. current_user_email=mrmoeve@gmail.com is_admin=True allowlisted=True authorized=True view=app
+2026-06-05 10:05:44,530 INFO [career_match] Starting analysis workflow. current_user_email=mrmoeve@gmail.com is_admin=True admin_test_mode=True paywall_bypassed=True payment_type_used=admin_test
+2026-06-05 10:05:44,610 INFO [career_match] Analysis workflow completed successfully. current_user_email=mrmoeve@gmail.com is_admin=True admin_test_mode=True paywall_bypassed=True payment_type_used=admin_test
+2026-06-05 10:05:44,626 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=2 recommendation_categories=['customer_success', 'data_analytics'] section=match
+2026-06-05 10:05:44,633 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=117
+2026-06-05 10:05:44,634 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=117
+2026-06-05 10:05:44,635 INFO [career_match] resume_coach_chat_opened user_email=mrmoeve@gmail.com analysis_id=117
+2026-06-05 10:05:44,667 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=2 recommendation_categories=['customer_success', 'data_analytics'] section=resume_builder
+2026-06-05 10:10:11,059 INFO [career_match] Database engine active: sqlite (applications.db)
+2026-06-05 10:10:11,175 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:10:11,177 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:10:11,178 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:10:11,179 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:10:11,272 INFO [career_match] App booted. version=v0.4.0-quality pid=94797
+2026-06-05 10:10:11,273 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=home
+2026-06-05 10:10:11,381 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:10:11,382 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:10:11,382 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:10:11,383 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:10:11,406 INFO [career_match] App booted. version=v0.4.0-quality pid=94797
+2026-06-05 10:10:11,406 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=home
+2026-06-05 10:10:11,412 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:10:11,413 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:10:11,413 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:10:11,414 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:10:11,436 INFO [career_match] App booted. version=v0.4.0-quality pid=94797
+2026-06-05 10:10:11,437 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=auth
+2026-06-05 10:10:11,541 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:10:11,541 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:10:11,542 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:10:11,543 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:10:11,576 INFO [career_match] App booted. version=v0.4.0-quality pid=94797
+2026-06-05 10:10:11,577 INFO [career_match] Startup auth state. current_user_email=anonymous is_admin=False allowlisted=False authorized=False view=auth
+2026-06-05 10:10:11,708 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:10:11,710 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:10:11,712 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:10:11,713 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:10:11,751 INFO [career_match] App booted. version=v0.4.0-quality pid=94797
+2026-06-05 10:10:11,753 INFO [career_match] Startup auth state. current_user_email=career-match-54e64087@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:10:11,911 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:10:11,912 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:10:11,913 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:10:11,913 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:10:11,937 INFO [career_match] App booted. version=v0.4.0-quality pid=94797
+2026-06-05 10:10:11,938 INFO [career_match] Startup auth state. current_user_email=career-match-54e64087@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:10:11,941 INFO [career_match] Resetting cached analysis outputs. reason=resume_uploaded
+2026-06-05 10:10:12,048 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:10:12,049 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:10:12,049 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:10:12,050 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:10:12,072 INFO [career_match] App booted. version=v0.4.0-quality pid=94797
+2026-06-05 10:10:12,074 INFO [career_match] Startup auth state. current_user_email=career-match-54e64087@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:10:12,196 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:10:12,197 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:10:12,197 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:10:12,198 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:10:12,223 INFO [career_match] App booted. version=v0.4.0-quality pid=94797
+2026-06-05 10:10:12,224 INFO [career_match] Startup auth state. current_user_email=career-match-54e64087@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:10:12,232 INFO [career_match] Starting analysis workflow. current_user_email=career-match-54e64087@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=free
+2026-06-05 10:10:12,365 INFO [career_match] Analysis workflow completed successfully. current_user_email=career-match-54e64087@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=free
+2026-06-05 10:10:12,378 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success_foundations', 'client_relationship_growth', 'stakeholder_partnership'] section=match
+2026-06-05 10:10:12,385 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=118
+2026-06-05 10:10:12,386 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=118
+2026-06-05 10:10:12,387 INFO [career_match] resume_coach_chat_opened user_email=career-match-54e64087@example.com analysis_id=118
+2026-06-05 10:10:12,418 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success_foundations', 'client_relationship_growth', 'stakeholder_partnership'] section=resume_builder
+2026-06-05 10:10:12,665 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:10:12,666 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:10:12,666 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:10:12,667 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:10:12,691 INFO [career_match] App booted. version=v0.4.0-quality pid=94797
+2026-06-05 10:10:12,692 INFO [career_match] Startup auth state. current_user_email=career-match-54e64087@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:10:12,710 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success_foundations', 'client_relationship_growth', 'stakeholder_partnership'] section=match
+2026-06-05 10:10:12,718 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=118
+2026-06-05 10:10:12,719 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=118
+2026-06-05 10:10:12,745 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success_foundations', 'client_relationship_growth', 'stakeholder_partnership'] section=resume_builder
+2026-06-05 10:10:13,056 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:10:13,057 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:10:13,057 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:10:13,058 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:10:13,082 INFO [career_match] App booted. version=v0.4.0-quality pid=94797
+2026-06-05 10:10:13,083 INFO [career_match] Startup auth state. current_user_email=career-match-54e64087@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:10:13,091 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:10:13,092 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:10:13,093 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:10:13,094 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:10:13,117 INFO [career_match] App booted. version=v0.4.0-quality pid=94797
+2026-06-05 10:10:13,118 INFO [career_match] Startup auth state. current_user_email=career-match-54e64087@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:10:13,127 INFO [career_match] Stripe webhook applied one-time assessment credit. user_email=career-match-54e64087@example.com session_id=test_credit_session
+2026-06-05 10:10:13,225 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:10:13,226 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:10:13,227 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:10:13,228 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:10:13,250 INFO [career_match] App booted. version=v0.4.0-quality pid=94797
+2026-06-05 10:10:13,252 INFO [career_match] Startup auth state. current_user_email=career-match-54e64087@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:10:13,268 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success_foundations', 'client_relationship_growth', 'stakeholder_partnership'] section=match
+2026-06-05 10:10:13,274 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=118
+2026-06-05 10:10:13,276 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=118
+2026-06-05 10:10:13,312 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success_foundations', 'client_relationship_growth', 'stakeholder_partnership'] section=resume_builder
+2026-06-05 10:10:13,535 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:10:13,536 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:10:13,537 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:10:13,537 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:10:13,562 INFO [career_match] App booted. version=v0.4.0-quality pid=94797
+2026-06-05 10:10:13,563 INFO [career_match] Startup auth state. current_user_email=career-match-54e64087@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:10:13,569 INFO [career_match] Starting analysis workflow. current_user_email=career-match-54e64087@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=credit
+2026-06-05 10:10:13,689 INFO [career_match] Analysis workflow completed successfully. current_user_email=career-match-54e64087@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=free
+2026-06-05 10:10:13,701 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success_foundations', 'client_relationship_growth', 'stakeholder_partnership'] section=match
+2026-06-05 10:10:13,708 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=119
+2026-06-05 10:10:13,709 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=119
+2026-06-05 10:10:13,710 INFO [career_match] resume_coach_chat_opened user_email=career-match-54e64087@example.com analysis_id=119
+2026-06-05 10:10:13,734 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success_foundations', 'client_relationship_growth', 'stakeholder_partnership'] section=resume_builder
+2026-06-05 10:10:13,854 INFO [career_match] Stripe webhook activated Pro subscription. user_email=career-match-54e64087@example.com customer_id=cus_test_123 subscription_id=sub_test_123 period_end=2026-07-04T12:00:00
+2026-06-05 10:10:13,990 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:10:13,992 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:10:13,993 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:10:13,995 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:10:14,026 INFO [career_match] App booted. version=v0.4.0-quality pid=94797
+2026-06-05 10:10:14,028 INFO [career_match] Startup auth state. current_user_email=career-match-54e64087@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:10:14,051 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success_foundations', 'client_relationship_growth', 'stakeholder_partnership'] section=match
+2026-06-05 10:10:14,058 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=119
+2026-06-05 10:10:14,060 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=119
+2026-06-05 10:10:14,090 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success_foundations', 'client_relationship_growth', 'stakeholder_partnership'] section=resume_builder
+2026-06-05 10:10:14,322 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:10:14,322 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:10:14,323 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:10:14,323 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:10:14,349 INFO [career_match] App booted. version=v0.4.0-quality pid=94797
+2026-06-05 10:10:14,350 INFO [career_match] Startup auth state. current_user_email=career-match-54e64087@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:10:14,356 INFO [career_match] Starting analysis workflow. current_user_email=career-match-54e64087@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=pro
+2026-06-05 10:10:14,489 INFO [career_match] Analysis workflow completed successfully. current_user_email=career-match-54e64087@example.com is_admin=False admin_test_mode=False paywall_bypassed=False payment_type_used=pro
+2026-06-05 10:10:14,503 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success_foundations', 'client_relationship_growth', 'stakeholder_partnership'] section=match
+2026-06-05 10:10:14,511 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=120
+2026-06-05 10:10:14,512 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=120
+2026-06-05 10:10:14,513 INFO [career_match] resume_coach_chat_opened user_email=career-match-54e64087@example.com analysis_id=120
+2026-06-05 10:10:14,538 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success_foundations', 'client_relationship_growth', 'stakeholder_partnership'] section=resume_builder
+2026-06-05 10:10:14,759 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:10:14,760 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:10:14,761 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:10:14,761 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:10:14,788 INFO [career_match] App booted. version=v0.4.0-quality pid=94797
+2026-06-05 10:10:14,789 INFO [career_match] Startup auth state. current_user_email=career-match-54e64087@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:10:14,850 INFO [career_match] Historical analysis backfilled with current compare pipeline. application_id=120 resume_text_exists=True job_text_exists=True
+2026-06-05 10:10:14,905 INFO [career_match] Historical analysis backfilled with current compare pipeline. application_id=119 resume_text_exists=True job_text_exists=True
+2026-06-05 10:10:14,959 INFO [career_match] Historical analysis backfilled with current compare pipeline. application_id=118 resume_text_exists=True job_text_exists=True
+2026-06-05 10:10:15,745 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:10:15,745 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:10:15,746 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:10:15,747 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:10:15,772 INFO [career_match] App booted. version=v0.4.0-quality pid=94797
+2026-06-05 10:10:15,773 INFO [career_match] Startup auth state. current_user_email=career-match-54e64087@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:10:15,833 INFO [career_match] Historical analysis backfilled with current compare pipeline. application_id=120 resume_text_exists=True job_text_exists=True
+2026-06-05 10:10:15,887 INFO [career_match] Historical analysis backfilled with current compare pipeline. application_id=119 resume_text_exists=True job_text_exists=True
+2026-06-05 10:10:15,941 INFO [career_match] Historical analysis backfilled with current compare pipeline. application_id=118 resume_text_exists=True job_text_exists=True
+2026-06-05 10:10:15,948 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=mrmoeve@gmail.com
+2026-06-05 10:10:15,949 INFO [career_match] Bootstrap admin verification. engine=sqlite email=mrmoeve@gmail.com is_admin=1 found=True
+2026-06-05 10:10:15,949 INFO [career_match] Running bootstrap admin migration. engine=sqlite target_email=talisa.salvador@gmail.com
+2026-06-05 10:10:15,950 INFO [career_match] Bootstrap admin verification. engine=sqlite email=talisa.salvador@gmail.com is_admin=1 found=True
+2026-06-05 10:10:15,975 INFO [career_match] App booted. version=v0.4.0-quality pid=94797
+2026-06-05 10:10:15,976 INFO [career_match] Startup auth state. current_user_email=career-match-54e64087@example.com is_admin=False allowlisted=False authorized=False view=app
+2026-06-05 10:10:15,994 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success_foundations', 'client_relationship_growth', 'stakeholder_partnership'] section=match
+2026-06-05 10:10:16,000 INFO [career_match] resume_coach_rendered=True resume_coach_skip_reason=ready analysis_exists=True resume_builder_exists=True resume_text_exists=True job_text_exists=True optimized_resume_exists=True missing_keywords_count=12 targeted_gap_fix_count=10 analysis_id=120
+2026-06-05 10:10:16,001 INFO [career_match] resume_coach_rendered=True reason=ready analysis_present=True builder_present=True resume_text_present=True job_text_present=True analysis_id=120
+2026-06-05 10:10:16,002 INFO [career_match] resume_coach_chat_opened user_email=career-match-54e64087@example.com analysis_id=120
+2026-06-05 10:10:16,029 INFO [career_match] Affiliate recommendations rendered. affiliate_cards_rendered=True recommendation_count=3 recommendation_categories=['customer_success_foundations', 'client_relationship_growth', 'stakeholder_partnership'] section=resume_builder

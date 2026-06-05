@@ -69,6 +69,7 @@ from services.billing_service import (
 from services.openai_service import generate_career_materials, is_demo_mode_api_key
 from services.resume_coach_service import QUICK_PROMPTS, generate_resume_coach_response
 from services.resume_builder_service import build_optimized_resume_package
+from services.role_profile_service import build_active_role_profile, build_role_profile_fingerprint
 from services.runtime_service import configure_logging, init_monitoring
 from services.subscription_service import get_subscription_blueprint
 from services.text_extractor import extract_text_from_upload
@@ -1155,6 +1156,8 @@ def init_state() -> None:
         "resume_coach_messages": [],
         "resume_coach_prompt_input": "",
         "resume_coach_logged_opened": False,
+        "active_role_fingerprint": "",
+        "active_role_profile": {},
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
@@ -1167,6 +1170,35 @@ def _application_payload() -> dict:
         "analysis": st.session_state.get("analysis"),
         "generated": st.session_state.get("generated"),
     }
+
+
+def _reset_analysis_outputs(reason: str) -> None:
+    logger.info("Resetting cached analysis outputs. reason=%s", reason)
+    st.session_state["analysis"] = None
+    st.session_state["generated"] = None
+    st.session_state["optimized_resume_text"] = ""
+    st.session_state["application_saved"] = False
+    st.session_state["last_application_id"] = 0
+    st.session_state["feedback_submitted_for_analysis"] = False
+    st.session_state["resume_coach_messages"] = []
+    st.session_state["resume_coach_prompt_input"] = ""
+    st.session_state["resume_coach_logged_opened"] = False
+
+
+def _sync_active_role_profile() -> None:
+    job_title = st.session_state.get("job_title_preview", "") or st.session_state.get("manual_title", "")
+    job_text = st.session_state.get("job_text", "") or st.session_state.get("manual_job_text", "")
+    if not job_text.strip():
+        st.session_state["active_role_profile"] = {}
+        st.session_state["active_role_fingerprint"] = ""
+        return
+    role_profile = build_active_role_profile(job_title, job_text)
+    fingerprint = build_role_profile_fingerprint(job_title or role_profile.get("display_name", ""), job_text)
+    previous = st.session_state.get("active_role_fingerprint", "")
+    if previous and previous != fingerprint:
+        _reset_analysis_outputs("role_profile_changed")
+    st.session_state["active_role_profile"] = role_profile
+    st.session_state["active_role_fingerprint"] = fingerprint
 
 
 def _save_current_application() -> None:
@@ -1210,6 +1242,116 @@ def _extract_resume_candidate_name(resume_text: str) -> str:
             continue
         return stripped
     return "Candidate"
+
+
+def _exact_keyword_matches(analysis: dict) -> list[str]:
+    exact_matches = analysis.get("matching_keywords", []) or analysis.get("matching_skills", []) or []
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for item in exact_matches:
+        cleaned = str(item).strip()
+        lowered = cleaned.lower()
+        if cleaned and lowered not in seen:
+            deduped.append(cleaned)
+            seen.add(lowered)
+    return deduped
+
+
+def _semantic_skill_matches(analysis: dict) -> list[dict]:
+    semantic_matches: list[dict] = []
+    for item in analysis.get("competency_scores", []) or []:
+        confidence = int(item.get("score", 0) or 0)
+        direct_score = int(item.get("direct_score", 0) or 0)
+        transferable_score = int(item.get("transferable_score", 0) or 0)
+        matched_terms = item.get("matched", []) or []
+        if confidence <= 0 and not matched_terms:
+            continue
+        if confidence < 25 and not matched_terms:
+            continue
+        semantic_matches.append(
+            {
+                "skill": item.get("competency", "Competency"),
+                "confidence": confidence,
+                "direct_score": direct_score,
+                "transferable_score": transferable_score,
+                "matched_terms": matched_terms,
+            }
+        )
+    semantic_matches.sort(key=lambda payload: (-payload["confidence"], payload["skill"]))
+    return semantic_matches
+
+
+def _hydrate_saved_analysis(item: dict, saved_analysis: dict | None) -> dict:
+    analysis = dict(saved_analysis or {})
+    resume_text = (
+        item.get("original_resume_text")
+        or item.get("resume_text")
+        or st.session_state.get("resume_text", "")
+    )
+    job_text = item.get("job_description_text") or st.session_state.get("job_text", "")
+
+    if resume_text and job_text:
+        try:
+            analysis = compare_resume_to_job(resume_text, job_text)
+            logger.info(
+                "Historical analysis backfilled with current compare pipeline. application_id=%s resume_text_exists=%s job_text_exists=%s",
+                item.get("id", 0),
+                bool(resume_text),
+                bool(job_text),
+            )
+        except Exception:
+            logger.exception(
+                "Unable to rehydrate saved analysis from stored resume/job text. Falling back to saved payload. application_id=%s",
+                item.get("id", 0),
+            )
+            analysis = dict(saved_analysis or {})
+    else:
+        logger.info(
+            "Historical analysis backfill skipped due to missing source text. application_id=%s resume_text_exists=%s job_text_exists=%s",
+            item.get("id", 0),
+            bool(resume_text),
+            bool(job_text),
+        )
+
+    if item.get("job_title"):
+        analysis["job_title"] = item.get("job_title", analysis.get("job_title", "Target Role"))
+    if item.get("company_name"):
+        analysis["company_name"] = item.get("company_name", analysis.get("company_name", "Unknown"))
+    return analysis
+
+
+def _generated_role_fingerprint(generated: dict) -> str:
+    return (
+        generated.get("role_profile_fingerprint", "")
+        or generated.get("resume_builder", {}).get("role_profile_fingerprint", "")
+    )
+
+
+def _generated_matches_analysis(analysis: dict, generated: dict) -> bool:
+    analysis_fingerprint = analysis.get("role_profile_fingerprint", "")
+    generated_fingerprint = _generated_role_fingerprint(generated)
+    return bool(analysis_fingerprint and generated_fingerprint and analysis_fingerprint == generated_fingerprint)
+
+
+def _rebuild_generated_outputs(resume_text: str, job_text: str, analysis: dict) -> dict:
+    generated = generate_career_materials(
+        resume_text=resume_text,
+        job_description_text=job_text,
+        analysis=analysis,
+    )
+    generated["resume_builder"] = build_optimized_resume_package(
+        resume_text=resume_text,
+        job_description_text=job_text,
+        analysis=analysis,
+        generated=generated,
+    )
+    generated["results_summary_email"] = build_results_summary_email(
+        analysis=analysis,
+        generated=generated,
+    )
+    generated["role_profile_fingerprint"] = analysis.get("role_profile_fingerprint", "")
+    generated["resume_builder"]["role_profile_fingerprint"] = analysis.get("role_profile_fingerprint", "")
+    return generated
 
 
 def _render_resume_coach(builder: dict) -> None:
@@ -1423,6 +1565,7 @@ def render_upload_tab() -> None:
                         resume_options[selected_saved_resume],
                     )
                     if saved_resume:
+                        _reset_analysis_outputs("saved_resume_selected")
                         st.session_state["resume_text"] = saved_resume.get("extracted_text", "")
                         st.session_state["resume_filename"] = saved_resume.get("original_filename", "")
                         mark_saved_resume_used(
@@ -1437,6 +1580,8 @@ def render_upload_tab() -> None:
         )
         if resume_file is not None:
             resume_text = extract_text_from_upload(resume_file)
+            if resume_text != st.session_state.get("resume_text", ""):
+                _reset_analysis_outputs("resume_uploaded")
             st.session_state["resume_text"] = resume_text
             st.session_state["resume_filename"] = resume_file.name
             st.success(f"Resume loaded from {resume_file.name}")
@@ -1481,9 +1626,11 @@ def render_upload_tab() -> None:
                 st.session_state["manual_title"] = extracted.title
                 st.session_state["manual_company"] = extracted.company_name
                 st.session_state["manual_location"] = extracted.location
+                _sync_active_role_profile()
                 st.success("Job description extracted successfully.")
             except JobExtractionError as exc:
                 logger.warning("Job extraction failed for %s: %s", job_url, exc)
+                _reset_analysis_outputs("job_extraction_failed")
                 st.session_state["job_text"] = ""
                 st.session_state["job_title_preview"] = ""
                 st.session_state["company_name_preview"] = ""
@@ -1492,6 +1639,8 @@ def render_upload_tab() -> None:
                 st.session_state["job_category_preview"] = ""
                 st.session_state["job_extraction_confidence"] = 0
                 st.session_state["job_extraction_error"] = str(exc)
+                st.session_state["active_role_profile"] = {}
+                st.session_state["active_role_fingerprint"] = ""
                 st.error(str(exc))
 
         if st.session_state.get("job_title_preview"):
@@ -1537,6 +1686,7 @@ def render_upload_tab() -> None:
                     st.session_state["job_title_preview"] = manual_title.strip() or st.session_state.get("job_title_preview", "")
                     st.session_state["company_name_preview"] = manual_company.strip() or st.session_state.get("company_name_preview", "")
                     st.session_state["job_location_preview"] = manual_location.strip() or st.session_state.get("job_location_preview", "")
+                    _sync_active_role_profile()
                     st.success("Field corrections applied.")
 
         fallback_expanded = bool(st.session_state.get("job_extraction_error"))
@@ -1573,6 +1723,7 @@ def render_upload_tab() -> None:
                     st.session_state["company_name_preview"] = manual_company.strip()
                     st.session_state["job_location_preview"] = manual_location.strip()
                     st.session_state["job_extraction_error"] = ""
+                    _sync_active_role_profile()
                     st.success("Manual job details saved. You can continue to analysis.")
                 else:
                     st.error("Paste the job description text before using the manual fallback.")
@@ -1623,22 +1774,14 @@ def render_upload_tab() -> None:
                 if st.session_state.get("company_name_preview"):
                     analysis["company_name"] = st.session_state["company_name_preview"]
                 st.session_state["analysis"] = analysis
+                st.session_state["active_role_profile"] = analysis.get("active_role_profile", {})
+                st.session_state["active_role_fingerprint"] = analysis.get("role_profile_fingerprint", "")
 
             with st.spinner("Generating tailored materials with OpenAI..."):
-                generated = generate_career_materials(
-                    resume_text=st.session_state["resume_text"],
-                    job_description_text=st.session_state["job_text"],
-                    analysis=st.session_state["analysis"],
-                )
-                generated["resume_builder"] = build_optimized_resume_package(
-                    resume_text=st.session_state["resume_text"],
-                    job_description_text=st.session_state["job_text"],
-                    analysis=st.session_state["analysis"],
-                    generated=generated,
-                )
-                generated["results_summary_email"] = build_results_summary_email(
-                    analysis=st.session_state["analysis"],
-                    generated=generated,
+                generated = _rebuild_generated_outputs(
+                    st.session_state["resume_text"],
+                    st.session_state["job_text"],
+                    st.session_state["analysis"],
                 )
                 st.session_state["optimized_resume_text"] = generated["resume_builder"]["optimized_resume_text"]
                 st.session_state["generated"] = generated
@@ -1774,6 +1917,9 @@ def render_match_tab() -> None:
     if st.session_state.get("job_category_preview"):
         st.write(f"**Category:** {st.session_state['job_category_preview']}")
 
+    exact_keyword_matches = _exact_keyword_matches(analysis)
+    semantic_skill_matches = _semantic_skill_matches(analysis)
+
     with st.expander("See detailed fit reasoning", expanded=False):
         st.write(f"**Likely job title:** {analysis['job_title']}")
         st.write(f"**Likely company:** {analysis['company_name']}")
@@ -1828,8 +1974,21 @@ def render_match_tab() -> None:
 
     left, right = st.columns(2)
     with left:
-        st.write("**Matching skills**")
-        st.write(", ".join(analysis["matching_skills"]) or "None identified")
+        st.write("**Exact Keyword Matches**")
+        st.write(", ".join(exact_keyword_matches) or "None identified")
+        st.write("**Semantic Matches**")
+        if semantic_skill_matches:
+            st.write("**Semantically Matched Skills**")
+            for item in semantic_skill_matches:
+                details = (
+                    f" | Direct {item['direct_score']}% | Transferable {item['transferable_score']}%"
+                    + (f" | Evidence: {', '.join(item.get('matched_terms', [])[:3])}" if item.get("matched_terms") else "")
+                )
+                st.write(f"- {item['skill']} ({item['confidence']}%){details}")
+        elif not exact_keyword_matches:
+            st.write("None identified")
+        else:
+            st.write("None identified")
         st.write("**Recruiter competency scores**")
         for item in analysis.get("competency_scores", []):
             st.write(
@@ -2636,8 +2795,10 @@ def render_history_page() -> None:
                 payload = json.loads(payload_json)
             except json.JSONDecodeError:
                 payload = {}
-        analysis = payload.get("analysis", {})
+        saved_analysis = payload.get("analysis", {})
+        analysis = _hydrate_saved_analysis(item, saved_analysis)
         generated = payload.get("generated", {})
+        display_analysis = analysis or {}
         recommendation = (analysis.get("job_fit", {}) or {}).get("recommendation", "Not available")
         haystack = " ".join([
             str(item.get("company_name", "")),
@@ -2714,12 +2875,24 @@ def render_history_page() -> None:
             st.write(
                 f"**ATS Before / After:** {item.get('original_ats_score', 0)}/100 -> {item.get('optimized_ats_score', 0)}/100"
             )
-            if analysis:
-                st.write("**Role lens:** " + analysis.get("role_family", "General Professional Role"))
-                st.write("**Top strengths:** " + (", ".join(analysis.get("role_specific_strengths", [])[:3]) or "Not available"))
+            if display_analysis:
+                exact_matches = _exact_keyword_matches(display_analysis)
+                semantic_matches = _semantic_skill_matches(display_analysis)
+                st.write("**Role lens:** " + display_analysis.get("role_family", "General Professional Role"))
+                st.write("**Top strengths:** " + (", ".join(display_analysis.get("role_specific_strengths", [])[:3]) or "Not available"))
+                st.write("**Exact Keyword Matches:** " + (", ".join(exact_matches) or "None identified"))
+                if semantic_matches:
+                    semantic_summary = ", ".join(
+                        f"{match['skill']} ({match['confidence']}%)" for match in semantic_matches[:5]
+                    )
+                    st.write("**Semantic Matches:** " + semantic_summary)
+                elif not exact_matches:
+                    st.write("**Semantic Matches:** None identified")
+                else:
+                    st.write("**Semantic Matches:** None identified")
             if st.button("Reopen Analysis", key=f"reopen_{item['id']}"):
-                st.session_state["analysis"] = analysis or None
-                st.session_state["generated"] = generated or None
+                st.session_state["analysis"] = display_analysis or None
+                rebuilt_generated = generated or {}
                 st.session_state["resume_text"] = (
                     item.get("original_resume_text")
                     or item.get("resume_text")
@@ -2729,16 +2902,26 @@ def render_history_page() -> None:
                     item.get("job_description_text")
                     or st.session_state.get("job_text", "")
                 )
-                if generated and generated.get("resume_builder"):
-                    st.session_state["optimized_resume_text"] = generated["resume_builder"].get("optimized_resume_text", "")
+                if st.session_state["analysis"] and st.session_state["resume_text"] and st.session_state["job_text"]:
+                    if not _generated_matches_analysis(st.session_state["analysis"], rebuilt_generated):
+                        rebuilt_generated = _rebuild_generated_outputs(
+                            st.session_state["resume_text"],
+                            st.session_state["job_text"],
+                            st.session_state["analysis"],
+                        )
+                st.session_state["generated"] = rebuilt_generated or None
+                if rebuilt_generated and rebuilt_generated.get("resume_builder"):
+                    st.session_state["optimized_resume_text"] = rebuilt_generated["resume_builder"].get("optimized_resume_text", "")
                 st.session_state["resume_coach_logged_opened"] = False
+                st.session_state["active_role_profile"] = st.session_state["analysis"].get("active_role_profile", {})
+                st.session_state["active_role_fingerprint"] = st.session_state["analysis"].get("role_profile_fingerprint", "")
                 st.session_state["last_application_id"] = item.get("id", 0)
                 st.session_state["app_page"] = "Workflow"
                 st.success("Analysis reopened in the workflow.")
                 st.rerun()
             if st.button("Duplicate Analysis", key=f"duplicate_{item['id']}"):
-                st.session_state["analysis"] = analysis or None
-                st.session_state["generated"] = generated or None
+                st.session_state["analysis"] = display_analysis or None
+                rebuilt_generated = generated or {}
                 st.session_state["resume_text"] = (
                     item.get("original_resume_text")
                     or item.get("resume_text")
@@ -2748,7 +2931,17 @@ def render_history_page() -> None:
                     item.get("job_description_text")
                     or st.session_state.get("job_text", "")
                 )
+                if st.session_state["analysis"] and st.session_state["resume_text"] and st.session_state["job_text"]:
+                    if not _generated_matches_analysis(st.session_state["analysis"], rebuilt_generated):
+                        rebuilt_generated = _rebuild_generated_outputs(
+                            st.session_state["resume_text"],
+                            st.session_state["job_text"],
+                            st.session_state["analysis"],
+                        )
+                st.session_state["generated"] = rebuilt_generated or None
                 st.session_state["resume_coach_logged_opened"] = False
+                st.session_state["active_role_profile"] = st.session_state["analysis"].get("active_role_profile", {})
+                st.session_state["active_role_fingerprint"] = st.session_state["analysis"].get("role_profile_fingerprint", "")
                 st.session_state["app_page"] = "Workflow"
                 st.success("Analysis duplicated into the workflow for editing.")
                 st.rerun()
@@ -3235,6 +3428,9 @@ def render_admin_page() -> None:
 
 
 def render_application_shell() -> None:
+    active_role_profile = (st.session_state.get("analysis") or {}).get("active_role_profile") or st.session_state.get("active_role_profile", {})
+    if active_role_profile:
+        st.caption(f"Active Role Profile: {active_role_profile.get('headline', active_role_profile.get('family', 'General Professional Role'))}")
     tabs = st.tabs(
         [
             "Upload",

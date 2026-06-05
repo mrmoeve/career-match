@@ -1,6 +1,8 @@
 import re
 from datetime import datetime
 
+from services.role_profile_service import build_active_role_profile
+
 
 GENERIC_BLOCKLIST = {
     "apply",
@@ -24,6 +26,10 @@ ATS_TERM_LIBRARY = {
         "renewal support", "gross retention", "client engagement", "executive business reviews",
         "upselling", "cross-selling", "customer advocacy", "risk mitigation", "training", "onboarding",
         "relationship management", "client communication", "application support",
+        "strategic sourcing", "procurement analytics", "vendor negotiation", "supplier negotiation",
+        "spend analysis", "forecast modeling", "stakeholder partnership", "renewal management",
+        "g&a category management", "systems improvement", "process improvement", "automation",
+        "procurement", "category management",
     ],
     "technologies": [
         "excel", "sql", "python", "powerpoint", "tableau", "power bi", "salesforce", "gainsight",
@@ -41,13 +47,17 @@ ATS_TERM_LIBRARY = {
         "requirements gathering", "incident management", "change management", "product adoption",
         "user training", "risk mitigation", "executive business reviews", "customer advocacy",
         "upselling", "cross-selling", "client engagement", "gross retention", "client communication",
-        "training", "onboarding", "application support",
+        "training", "onboarding", "application support", "strategic sourcing", "vendor negotiation",
+        "supplier negotiation", "spend analysis", "forecast modeling", "stakeholder partnership",
+        "renewal management", "g&a category management", "automation", "procurement analytics",
+        "procurement", "category management", "systems improvement",
     ],
     "industry_terms": [
         "saas", "financial services", "capital markets", "asset management", "wealth management",
         "investment banking", "customer success", "operations", "trade support", "production support",
         "application support", "portfolio", "treasury", "compliance", "risk", "reconciliation",
-        "account management", "renewals",
+        "account management", "renewals", "procurement", "strategic sourcing", "vendor negotiation",
+        "spend analysis", "category management",
     ],
 }
 
@@ -69,6 +79,16 @@ ATS_SYNONYMS = {
         (r"\bissue resolution\b|\bresolve(?:d)? issues?\b", "Issue Resolution"),
         (r"\bapplication support\b", "Application Support"),
         (r"\bbusiness analysis\b|\bbusiness analyst\b", "Business Analysis"),
+        (r"\bstrategic sourcing\b|\bsourcing strategy\b", "Strategic Sourcing"),
+        (r"\bprocurement analytics\b", "Procurement Analytics"),
+        (r"\bvendor negotiation\b|\bsupplier negotiation\b|\bcontract negotiation\b", "Vendor Negotiation"),
+        (r"\bspend analysis\b|\bcost analysis\b", "Spend Analysis"),
+        (r"\bforecast modeling\b|\bforecast model\b", "Forecast Modeling"),
+        (r"\bstakeholder partnership\b", "Stakeholder Partnership"),
+        (r"\brenewal management\b|\bcontract renewals?\b", "Renewal Management"),
+        (r"\bg&a\b|\bgeneral and administrative\b|\bg&a category management\b", "G&A Category Management"),
+        (r"\bautomation\b|\bai\b|\bmachine learning\b", "AI / Automation in Procurement"),
+        (r"\bsystems?\b|\bworkflow\b|\bprocess improvement\b", "Systems / Process Improvement"),
     ],
     "responsibilities": [
         (r"\bonboarding\b", "Client Onboarding"),
@@ -82,11 +102,19 @@ ATS_SYNONYMS = {
         (r"\bclient communication\b|\bpresenting insights\b|\bcommunication\b", "Client Communication"),
         (r"\bapplication support\b", "Application Support"),
         (r"\bbusiness analysis\b|\bbusiness analyst\b", "Business Analysis"),
+        (r"\bstrategic sourcing\b|\bsourcing strategy\b", "Strategic Sourcing"),
+        (r"\bvendor negotiation\b|\bsupplier negotiation\b|\bcontract negotiation\b", "Vendor Negotiation"),
+        (r"\bspend analysis\b|\bcost analysis\b", "Spend Analysis"),
+        (r"\bforecast modeling\b|\bforecast model\b", "Forecast Modeling"),
+        (r"\brenewal management\b|\bcontract renewals?\b", "Renewal Management"),
+        (r"\bautomation\b|\bai\b|\bmachine learning\b", "AI / Automation in Procurement"),
+        (r"\bprocurement\b|\bcategory management\b|\bg&a\b", "G&A Category Management"),
     ],
     "industry_terms": [
         (r"\bcustomer success\b", "Customer Success"),
         (r"\baccount management\b|\baccount managers?\b", "Account Management"),
         (r"\brenewals?\b", "Renewals"),
+        (r"\bprocurement\b|\bstrategic sourcing\b", "Procurement"),
     ],
 }
 
@@ -102,50 +130,6 @@ TITLE_KEYWORDS = {
     "project", "business analyst", "client success", "customer success", "technology", "engineer",
     "specialist",
 }
-
-COMPETENCY_MODEL = {
-    "Customer Success": {
-        "job_terms": ["Customer Success", "Client Engagement", "Gross Retention", "Renewals", "Customer Onboarding", "Product Adoption"],
-        "transfer_terms": ["Stakeholder Management", "Client Communication", "Relationship Management", "Cross-Functional Collaboration", "Issue Resolution", "Application Support", "User Training"],
-        "weight": 18,
-    },
-    "Account Management": {
-        "job_terms": ["Account Management", "Client Relationship Management", "Renewal Support", "Upselling", "Cross-selling", "Executive Business Reviews"],
-        "transfer_terms": ["Stakeholder Management", "Relationship Management", "Client Communication", "Cross-Functional Collaboration", "Business Analysis", "Stakeholder Communication"],
-        "weight": 16,
-    },
-    "Stakeholder Management": {
-        "job_terms": ["Stakeholder Management", "Cross-Functional Collaboration", "Executive Business Reviews"],
-        "transfer_terms": ["Stakeholder Communication", "Executive Reporting", "Client Communication", "Business Analysis", "Project Coordination"],
-        "weight": 18,
-    },
-    "Client Communication": {
-        "job_terms": ["Client Communication", "Client Relationship Management", "User Training"],
-        "transfer_terms": ["Stakeholder Communication", "Executive Reporting", "Presentation Development", "Issue Resolution", "Application Support"],
-        "weight": 16,
-    },
-    "Risk Management": {
-        "job_terms": ["Risk Mitigation", "Risk", "Issue Resolution"],
-        "transfer_terms": ["Risk Management", "Data Analysis", "Process Improvement", "Reconciliation", "Variance Analysis"],
-        "weight": 14,
-    },
-    "Training & Adoption": {
-        "job_terms": ["Product Adoption", "User Training", "Client Onboarding", "Customer Onboarding"],
-        "transfer_terms": ["Training", "Dashboard Reporting", "Process Improvement", "Stakeholder Communication", "Presentation Development", "Application Support", "Issue Resolution"],
-        "weight": 18,
-    },
-}
-
-ROLE_FAMILY_RULES = [
-    (
-        {"Customer Success", "Account Management", "Client Engagement", "Gross Retention", "Renewals", "Product Adoption", "Client Onboarding"},
-        "SaaS Customer Success / Account Management",
-    ),
-    (
-        {"Application Support", "Issue Resolution", "Incident Management"},
-        "Application Support / Client Service",
-    ),
-]
 
 
 def _normalize_text(text: str) -> str:
@@ -350,20 +334,12 @@ def _build_recruiter_quality_intelligence(
         match_item = match_by_name.get(competency, {})
         missing_item = missing_by_name.get(competency, {})
         evidence_lines = match_item.get("resume_evidence_lines", [])
-        lead_evidence = evidence_lines[0] if evidence_lines else ""
-        repositioning = ""
-        if competency == "Customer Success":
-            repositioning = "Frame stakeholder support, issue resolution, and cross-functional coordination as customer-success outcomes."
-        elif competency == "Account Management":
-            repositioning = "Highlight user-facing ownership, relationship continuity, and coordination across teams as account-style support."
-        elif competency == "Stakeholder Management":
-            repositioning = "Move stakeholder-facing bullets higher in the resume and use language that signals ownership and influence."
-        elif competency == "Client Communication":
-            repositioning = "Use clearer client-facing wording around communication, updates, and issue handling."
-        elif competency == "Risk Management":
-            repositioning = "Connect variance analysis, controls, or issue handling to service protection and risk reduction."
-        elif competency == "Training & Adoption":
-            repositioning = "Position training, enablement, or onboarding-like work as adoption support."
+        matched_terms = item.get("matched", [])[:3]
+        if matched_terms:
+            repositioning = (
+                f"Use job-aligned wording that highlights {', '.join(term.lower() for term in matched_terms)} "
+                "while keeping the original scope and evidence intact."
+            )
         else:
             repositioning = "Rephrase supported experience using the job's language while staying grounded in the resume."
         intelligence.append(
@@ -724,6 +700,7 @@ def _build_competency_scores(
     resume_years: int,
     title_overlap: list[str],
     industry_overlap: list[str],
+    active_role_profile: dict,
 ) -> tuple[list[dict], int, int, int, int]:
     explicit_terms = set(term.lower() for term in _flatten_categories(resume_explicit_categories))
     supported_terms = set(term.lower() for term in _flatten_categories(resume_supported_categories))
@@ -734,7 +711,8 @@ def _build_competency_scores(
     transferable_total = 0.0
     weight_total = 0.0
 
-    for name, config in COMPETENCY_MODEL.items():
+    for config in active_role_profile.get("competencies", []):
+        name = config["label"]
         job_terms = [term for term in config["job_terms"] if term.lower() in job_terms_flat]
         if not job_terms:
             job_terms = config["job_terms"][:2]
@@ -759,8 +737,8 @@ def _build_competency_scores(
             )
         )
 
-        title_bonus = 6 if title_overlap and name in {"Stakeholder Management", "Account Management"} else 0
-        industry_bonus = 6 if industry_overlap and name in {"Risk Management", "Account Management"} else 0
+        title_bonus = 6 if title_overlap and any(token in name.lower() for token in {"stakeholder", "account", "procurement", "sourcing"}) else 0
+        industry_bonus = 6 if industry_overlap and any(token in name.lower() for token in {"risk", "account", "procurement", "spend"}) else 0
         experience_bonus = 8 if resume_years >= 10 else 5 if resume_years >= 5 else 2 if resume_years >= 2 else 0
         overall_score = max(0, min(100, round(direct_score * 0.45 + transferable_score * 0.40 + title_bonus + industry_bonus + experience_bonus)))
 
@@ -811,23 +789,12 @@ def _build_competency_scores(
     return competency_rows, direct_match_score, transferable_match_score, overall_fit_score, interview_potential_score
 
 
-def _infer_role_family(job_categories: dict[str, list[str]]) -> str:
-    job_terms = set(_flatten_categories(job_categories))
-    for triggers, label in ROLE_FAMILY_RULES:
-        if job_terms.intersection(triggers):
-            return label
-    if "SaaS" in job_terms or "Customer Success" in job_terms:
-        return "SaaS Customer Success / Account Management"
-    if "Financial Services" in job_terms:
-        return "Financial Services"
-    return "General Professional Role"
-
-
 def _build_role_gap_analysis(
     job_categories: dict[str, list[str]],
     resume_explicit_categories: dict[str, list[str]],
     resume_supported_categories: dict[str, list[str]],
     competency_scores: list[dict],
+    active_role_profile: dict,
 ) -> dict:
     explicit_terms = set(_flatten_categories(resume_explicit_categories))
     supported_terms = set(_flatten_categories(resume_supported_categories))
@@ -838,11 +805,14 @@ def _build_role_gap_analysis(
     missing_competencies = [item["competency"] for item in competency_scores if item["direct_score"] < 45][:6]
     reposition_resume = []
     mapping_suggestions = [
-        ("Stakeholder Management", "Reposition stakeholder coordination as customer-success-relevant relationship management."),
-        ("Client Communication", "Highlight communication work as client-facing support and expectation management."),
-        ("Application Support", "Frame application or operational support work as issue resolution and adoption support."),
-        ("Business Analysis", "Position analytical problem-solving as proactive customer problem resolution."),
-        ("Cross-Functional Collaboration", "Emphasize partnership across teams as a customer-success style coordination strength."),
+        ("Stakeholder Management", "Move stakeholder-facing examples higher and connect them to the role's partnership requirements."),
+        ("Stakeholder Partnership", "Move stakeholder-facing examples higher and connect them to the role's partnership requirements."),
+        ("Client Communication", "Rewrite communication bullets so they reflect the audience, decisions, and outcomes more clearly."),
+        ("Application Support", "Frame operational or systems support as process reliability and issue-resolution strength."),
+        ("Business Analysis", "Position analytical problem-solving as evidence of structured decision support."),
+        ("Cross-Functional Collaboration", "Emphasize how cross-functional work helped move business priorities forward."),
+        ("Strategic Sourcing", "Highlight sourcing, negotiation, or vendor-facing work using procurement language where evidence supports it."),
+        ("Procurement Analytics", "Make cost, spend, or analytical decision-support work more visible near the top of the resume."),
     ]
     for term, suggestion in mapping_suggestions:
         if term in supported_terms:
@@ -853,6 +823,7 @@ def _build_role_gap_analysis(
         "transferable_experience": transferable_experience,
         "missing_competencies": missing_competencies,
         "resume_repositioning": _dedupe_keep_order(reposition_resume)[:5],
+        "active_role_profile_name": active_role_profile.get("headline", active_role_profile.get("family", "General Professional Role")),
     }
 
 
@@ -873,7 +844,7 @@ def _build_hiring_manager_view(
     if employers:
         reasons.append(f"The resume shows experience at established employers such as {', '.join(sorted(employers)[:3])}.")
     if transferable_match_score >= 70:
-        reasons.append(f"Transferable match is strong at {transferable_match_score}%, suggesting the candidate could ramp into the role even without a direct customer-success title.")
+        reasons.append(f"Transferable match is strong at {transferable_match_score}%, suggesting the candidate could ramp into the role even without a direct title match.")
     strong_competencies = [item["competency"] for item in competency_scores if item["score"] >= 70]
     if strong_competencies:
         reasons.append(f"Interview potential is supported by strong competencies in {', '.join(strong_competencies[:3])}.")
@@ -892,6 +863,7 @@ def compare_resume_to_job(resume_text: str, job_description_text: str) -> dict:
 
     job_title = _extract_title(job_description_text)
     company_name = _extract_company(job_description_text)
+    active_role_profile = build_active_role_profile(job_title, job_description_text)
     resume_years = _calculate_total_experience_years(resume_text)
     title_overlap = sorted(_extract_title_tokens(job_title).intersection(_extract_title_tokens(resume_text)))
     industry_overlap = sorted(_extract_industry_terms(resume_text).intersection(_extract_industry_terms(job_description_text)))
@@ -903,8 +875,9 @@ def compare_resume_to_job(resume_text: str, job_description_text: str) -> dict:
         resume_years,
         title_overlap,
         industry_overlap,
+        active_role_profile,
     )
-    role_family = _infer_role_family(job_categories)
+    role_family = active_role_profile.get("family", "General Professional Role")
     if role_family == "SaaS Customer Success / Account Management":
         transfer_relevance_terms = {
             "Stakeholder Management",
@@ -966,6 +939,7 @@ def compare_resume_to_job(resume_text: str, job_description_text: str) -> dict:
         resume_explicit_categories=resume_explicit_categories,
         resume_supported_categories=resume_supported_categories,
         competency_scores=competency_scores,
+        active_role_profile=active_role_profile,
     )
     match_reasoning = _build_matching_reasoning(
         resume_text=resume_text,
@@ -1003,6 +977,8 @@ def compare_resume_to_job(resume_text: str, job_description_text: str) -> dict:
         "overall_fit_score": overall_fit_score,
         "overall_interview_potential": interview_potential_score,
         "role_family": role_family,
+        "active_role_profile": active_role_profile,
+        "role_profile_fingerprint": active_role_profile.get("fingerprint", ""),
         "job_fit": job_fit,
         "matching_skills": matching_skills[:15],
         "missing_keywords": missing_keywords,

@@ -369,6 +369,11 @@ def _build_targeted_gap_fixes(resume_text: str, analysis: dict, evidence_map: di
         evidence_lines = _find_gap_evidence_lines(gap_name, resume_text, evidence_map)
         supported = bool(evidence_lines)
         suggestions = TARGET_GAP_SUGGESTIONS.get(gap_name, [])
+        if supported and not suggestions:
+            suggestions = [
+                f"Reframed prior work to highlight resume-backed overlap with {gap_name.lower()} while preserving the original scope and facts.",
+                f"Used clearer, role-aligned wording to connect documented experience to {gap_name.lower()} expectations.",
+            ]
         fixes.append(
             {
                 "gap_name": gap_name,
@@ -392,6 +397,12 @@ def _build_targeted_summary(analysis: dict, evidence_map: dict[str, dict], targe
         return (
             "Professional with resume-backed experience supporting users, stakeholders, and operational workflows, "
             f"with transferable strength in {phrasing}. Known for clear follow-through, issue resolution, and cross-functional coordination."
+        )
+    if supported_gap_names:
+        phrasing = ", ".join(name.lower() for name in supported_gap_names[:3])
+        return (
+            "Professional with resume-backed experience aligned to the target role, with transferable strength in "
+            f"{phrasing}. Known for structured execution, analytical support, and cross-functional coordination."
         )
     return _build_optimized_summary(analysis, evidence_map)
 
@@ -422,7 +433,8 @@ def _rewrite_experience_lines(
         for item in target_gap_fixes
         if item.get("supported_by_resume_evidence")
     }
-    supported_terms = [gap for gap in supported_fix_map] or [
+    role_competencies = [item.get("competency", "") for item in analysis.get("competency_scores", []) if item.get("matched")]
+    supported_terms = [gap for gap in supported_fix_map] or role_competencies or [
         term for term in [
             "Stakeholder Management",
             "Client Communication",
@@ -607,10 +619,12 @@ def _update_targeted_gap_fix_results(target_fixes: list[dict], keywords_after: l
     return target_fixes, added, rejected
 
 
-def _compute_trust_score(keywords_added: list[str], evidence_map: dict[str, dict]) -> int:
+def _compute_trust_score(keywords_added: list[str], evidence_map: dict[str, dict], explicit_skill_count: int = 0, inferred_skill_count: int = 0) -> int:
     if not keywords_added:
-        return 100
+        return 100 if (evidence_map or explicit_skill_count or inferred_skill_count) else 0
     supported = sum(1 for term in keywords_added if term in evidence_map)
+    if supported == 0 and (evidence_map or explicit_skill_count or inferred_skill_count):
+        return 75
     return round((supported / len(keywords_added)) * 100)
 
 
@@ -692,20 +706,26 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
     unsupported_added = [item for item in candidate_keywords_added if item not in evidence_map and item not in supported_gap_names]
     target_gap_fixes, targeted_keywords_added, targeted_keywords_rejected = _update_targeted_gap_fix_results(target_gap_fixes, keywords_after)
 
-    trust_score = 100 if not unsupported_added else _compute_trust_score(keywords_added, evidence_map)
+    explicit_categories = analysis.get("resume_explicit_keyword_categories", {})
+    supported_categories = analysis.get("resume_supported_keyword_categories", {})
+    explicit_skill_count = len(explicit_categories.get("skills", []) + explicit_categories.get("technologies", []) + explicit_categories.get("certifications", []))
+    inferred_skills = [
+        term
+        for term, payload in evidence_map.items()
+        if payload["evidence_type"] == "inferred"
+    ]
+    trust_score = 100 if not unsupported_added else _compute_trust_score(
+        keywords_added,
+        evidence_map,
+        explicit_skill_count=explicit_skill_count,
+        inferred_skill_count=len(inferred_skills),
+    )
     optimized_ats = max(original_ats, raw_optimized_ats - (len(unsupported_added) * 15))
     if original_ats > 0:
         improvement_percentage = round(((optimized_ats - original_ats) / original_ats) * 100)
     else:
         improvement_percentage = 100 if optimized_ats > 0 else 0
 
-    explicit_categories = analysis.get("resume_explicit_keyword_categories", {})
-    supported_categories = analysis.get("resume_supported_keyword_categories", {})
-    inferred_skills = [
-        term
-        for term, payload in evidence_map.items()
-        if payload["evidence_type"] == "inferred"
-    ]
     ats_change_explanation = ""
     if optimized_ats == original_ats:
         if unsupported_added:

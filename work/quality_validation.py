@@ -8,6 +8,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from bs4 import BeautifulSoup
 
 from services.analysis_service import compare_resume_to_job
+from services.affiliate_service import build_learning_recommendations
 from services.job_url_service import (
     _extract_category,
     _extract_company,
@@ -74,6 +75,16 @@ dashboard reporting, executive reporting, data analysis, issue resolution, and p
 Preferred technologies include Excel, PowerPoint, Salesforce, and CRM workflows.
 """
 
+PROCUREMENT_JOB_TEXT = """Senior Procurement Analyst
+Datadog
+New York, NY, United States
+
+Datadog is hiring a Senior Procurement Analyst to support strategic sourcing, procurement analytics,
+vendor negotiation, spend analysis, renewal management, forecast modeling, stakeholder partnership,
+AI and automation in procurement, G&A category management, and systems/process improvement.
+The role partners across finance, legal, procurement, and business teams to improve sourcing decisions and operating leverage.
+"""
+
 
 def main() -> None:
     resume_text = Path("work/test_assets/sample_resume.txt").read_text()
@@ -118,6 +129,33 @@ def main() -> None:
     print("ats_after", builder["optimized_ats_score"])
     print("keywords_added", builder["keywords_added"])
     print("bridge_guidance", builder.get("bridge_the_gap_guidance", []))
+
+    procurement_analysis = compare_resume_to_job(resume_text, PROCUREMENT_JOB_TEXT)
+    procurement_competencies = [item["competency"] for item in procurement_analysis.get("competency_scores", [])]
+    procurement_recommendations = build_learning_recommendations(procurement_analysis)
+    procurement_categories = [item.get("category", "") for item in procurement_recommendations]
+    print("procurement_role_family", procurement_analysis.get("role_family"))
+    print("procurement_active_role_profile", procurement_analysis.get("active_role_profile", {}).get("headline", ""))
+    print("procurement_has_customer_success_labels", any(item in {"Customer Success", "Account Management", "Training & Adoption"} for item in procurement_competencies))
+    print("procurement_expected_competencies_present", all(item in procurement_competencies for item in [
+        "Strategic Sourcing",
+        "Procurement Analytics",
+        "Vendor Negotiation",
+        "Spend Analysis",
+        "Renewal Management",
+        "Forecast Modeling",
+        "Stakeholder Partnership",
+        "AI / Automation in Procurement",
+        "G&A Category Management",
+        "Systems / Process Improvement",
+    ]))
+    print("procurement_affiliate_categories", procurement_categories)
+    print("procurement_customer_success_labels_count", sum(1 for item in procurement_competencies if item == "Customer Success"))
+    print("procurement_account_management_labels_count", sum(1 for item in procurement_competencies if item == "Account Management"))
+    print("procurement_training_adoption_labels_count", sum(1 for item in procurement_competencies if item == "Training & Adoption"))
+    print("procurement_customer_success_recommendations", sum(1 for item in procurement_categories if item == "customer_success_foundations"))
+    print("procurement_account_management_recommendations", sum(1 for item in procurement_categories if item == "client_relationship_growth"))
+    print("procurement_cross_role_contamination_passed", not any(item in {"customer_success_foundations", "client_relationship_growth"} for item in procurement_categories))
 
 
 if __name__ == "__main__":

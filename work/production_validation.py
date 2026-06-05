@@ -11,6 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from streamlit.testing.v1 import AppTest
 
 from app import SEO_VIEWS
+from app import _exact_keyword_matches, _semantic_skill_matches
 from database.db import (
     AffiliateClickRecord,
     admin_metrics,
@@ -26,6 +27,7 @@ from database.db import (
     test_database_connection,
 )
 from services.analysis_service import compare_resume_to_job
+from services.affiliate_service import build_learning_recommendations
 from services.billing_service import handle_webhook_event
 from services.export_service import build_optimized_resume_docx, build_optimized_resume_pdf
 from services.resume_builder_service import build_optimized_resume_package
@@ -157,6 +159,20 @@ def main() -> None:
     print("pro_user_bypasses_paywall", at.session_state["app_page"] == "Workflow")
     print("dashboard_jobs_analyzed", get_dashboard_metrics(email)["jobs_analyzed"])
 
+    next(item for item in at.radio if item.label == "Navigation").set_value("Analysis History")
+    at.run()
+    reopen_buttons = [button for button in at.button if button.label == "Reopen Analysis"]
+    if reopen_buttons:
+        reopen_buttons[0].click()
+        at.run(timeout=60)
+    reopened_analysis = at.session_state["analysis"] if "analysis" in at.session_state else {}
+    print("reopened_analysis_has_competency_scores", bool(reopened_analysis.get("competency_scores")))
+    print("reopened_analysis_semantic_matches_present", len(_semantic_skill_matches(reopened_analysis)) > 0)
+    print(
+        "reopened_analysis_none_identified_only_when_both_empty",
+        bool(_exact_keyword_matches(reopened_analysis) or _semantic_skill_matches(reopened_analysis)),
+    )
+
     next(item for item in at.radio if item.label == "Navigation").set_value("Subscription")
     at.run()
     print("subscription_page_present", at.session_state["app_page"] == "Subscription")
@@ -212,6 +228,12 @@ def main() -> None:
         print(f"{view_name}_caddy_redirect", f"/{view_name}" in caddy_config)
 
     analysis = compare_resume_to_job(resume_text, job_text)
+    procurement_text = (
+        "Senior Procurement Analyst\nDatadog\nStrategic sourcing, procurement analytics, vendor negotiation, "
+        "spend analysis, renewal management, forecast modeling, stakeholder partnership, AI automation in procurement, "
+        "G&A category management, and systems/process improvement."
+    )
+    procurement_analysis = compare_resume_to_job(resume_text, procurement_text)
     builder = build_optimized_resume_package(resume_text, job_text, analysis, {"professional_summary": "", "tailored_resume_bullets": []})
     docx_bytes = build_optimized_resume_docx(builder["optimized_resume_text"])
     pdf_bytes = build_optimized_resume_pdf(builder["optimized_resume_text"])
@@ -259,16 +281,16 @@ def main() -> None:
         AffiliateClickRecord(
             user_email=email,
             assessment_id=int(at.session_state["last_application_id"] or 0),
-            recommendation_name="Customer Success Foundations",
-            recommendation_category="customer_success",
-            provider="SuccessCOACHING",
-            affiliate_url=os.environ["AFFILIATE_CUSTOMER_SUCCESS_URL"],
+            recommendation_name="Resume and ATS Optimization",
+            recommendation_category="resume_ats",
+            provider="TopResume",
+            affiliate_url=os.environ["AFFILIATE_RESUME_ATS_URL"],
             clicked_at=datetime.now().isoformat(timespec="seconds"),
         )
     )
     affiliate_clicks = list_affiliate_clicks(limit=5)
     metrics_after_affiliate = admin_metrics()
-    print("affiliate_click_saved", any(item.get("recommendation_category") == "customer_success" for item in affiliate_clicks))
+    print("affiliate_click_saved", any(item.get("recommendation_category") == "resume_ats" for item in affiliate_clicks))
     print(
         "affiliate_click_metrics_incremented",
         metrics_after_affiliate.get("total_affiliate_clicks", 0) >= metrics_before_affiliate.get("total_affiliate_clicks", 0) + 1,
@@ -288,6 +310,21 @@ def main() -> None:
         else:
             os.environ["APP_ENV"] = previous_env
 
+    print("procurement_role_profile_family", procurement_analysis.get("role_family"))
+    print(
+        "procurement_no_customer_success_competencies",
+        not any(
+            item.get("competency") in {"Customer Success", "Account Management", "Training & Adoption"}
+            for item in procurement_analysis.get("competency_scores", [])
+        ),
+    )
+    print(
+        "procurement_no_customer_success_recommendations",
+        not any(
+            item.get("category") in {"customer_success_foundations", "client_relationship_growth"}
+            for item in build_learning_recommendations(procurement_analysis)
+        ),
+    )
     print("docx_bytes", len(docx_bytes))
     print("pdf_bytes", len(pdf_bytes))
 

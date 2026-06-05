@@ -68,7 +68,8 @@ def _make_question_entry(
 
 
 def _build_interview_dashboard(analysis: dict, summary_skills: str, gap_note: str, title: str, company: str) -> dict:
-    role_label = title if title and title != "Target Finance Role" else "target role"
+    active_role_profile = analysis.get("active_role_profile", {}) or {}
+    role_label = title if title and title != "Target Finance Role" else active_role_profile.get("display_name", "target role")
     technical_topics = analysis.get("job_skills", [])[:8] or ["excel", "sql", "reporting", "analysis"]
     matched_skills = analysis.get("matching_skills", [])[:5]
     strengths = analysis.get("role_specific_strengths", [])[:3]
@@ -83,7 +84,7 @@ def _build_interview_dashboard(analysis: dict, summary_skills: str, gap_note: st
     likely_questions = []
     likely_templates = [
         ("background", f"Walk me through your background and why it fits this {role_label} role.", f"I would connect my experience in {summary_skills} to the priorities in this role and explain the progression visible in my resume."),
-        ("motivation", f"Why are you interested in this {role_label} opportunity?", f"I would tie my interest to the mix of finance, problem-solving, and stakeholder work already reflected in my resume."),
+        ("motivation", f"Why are you interested in this {role_label} opportunity?", f"I would tie my interest to the mix of business priorities, problem-solving, and stakeholder work already reflected in my resume."),
         ("skills", "Which of your strengths are most relevant here?", f"I would highlight {summary_skills} and explain how those skills supported measurable business work."),
         ("behavioral", "Tell me about a time you handled a tight deadline.", "I would use a real reporting or planning deadline from my resume and show how I stayed organized under pressure."),
         ("behavioral", "Tell me about a time you worked across teams.", "I would describe coordinating with finance, operations, or leadership stakeholders to move work forward accurately."),
@@ -309,6 +310,8 @@ def _extract_resume_highlights(resume_text: str) -> dict:
 
 
 def _build_career_coach(analysis: dict, title: str, company: str) -> dict:
+    active_role_profile = analysis.get("active_role_profile", {}) or {}
+    profile_labels = [item.get("label", "") for item in active_role_profile.get("competencies", []) if item.get("label")]
     job_fit = analysis.get("job_fit", {})
     missing_skills = analysis.get("job_fit", {}).get("missing_required_skills", [])[:4]
     missing_certifications = analysis.get("job_fit", {}).get("missing_certifications", [])[:3]
@@ -331,7 +334,7 @@ def _build_career_coach(analysis: dict, title: str, company: str) -> dict:
 
     thirty_day_plan = [
         {
-            "action": f"Rewrite the resume summary and core bullets to emphasize {', '.join(analysis.get('matching_skills', [])[:3]) or 'the most relevant finance skills'}.",
+            "action": f"Rewrite the resume summary and core bullets to emphasize {', '.join(analysis.get('matching_skills', [])[:3]) or ', '.join(profile_labels[:3]) or 'the most relevant role skills'}.",
             "why_it_matters": "Stronger role alignment can improve how quickly recruiters and hiring managers see the fit.",
             "estimated_job_fit_increase": _estimate_increase(3),
         },
@@ -445,25 +448,22 @@ def _build_career_coach(analysis: dict, title: str, company: str) -> dict:
 
 
 def _build_demo_materials(analysis: dict, resume_text: str, job_description_text: str) -> dict:
+    active_role_profile = analysis.get("active_role_profile", {}) or {}
     matching_skills = analysis.get("matching_skills", [])[:4]
     missing_keywords = analysis.get("missing_keywords", [])[:4]
     strengths = analysis.get("role_specific_strengths", [])[:3]
-    title = analysis.get("job_title", "Target Finance Role")
+    title = analysis.get("job_title", active_role_profile.get("display_name", "Target Role"))
     company = analysis.get("company_name", "Target Company")
     highlights = _extract_resume_highlights(resume_text)
     companies = highlights.get("companies", [])
     bullets_data = highlights.get("bullets", [])
 
-    summary_skills = ", ".join(matching_skills) if matching_skills else "stakeholder communication, reporting, and analysis"
+    summary_skills = ", ".join(matching_skills) if matching_skills else ", ".join(item.get("label", "") for item in active_role_profile.get("competencies", [])[:3] if item.get("label")) or "stakeholder communication, reporting, and analysis"
     gap_note = ", ".join(missing_keywords) if missing_keywords else "the role's preferred tools and terminology"
-    role_language = [
+    role_language = [item.get("label", "").lower() for item in active_role_profile.get("competencies", []) if item.get("label")] or [
         "stakeholder management",
-        "client support",
-        "onboarding",
-        "training",
-        "issue resolution",
-        "relationship management",
-        "cross-functional collaboration",
+        "process improvement",
+        "analysis",
     ]
     supported_role_language = [item for item in role_language if item.title() in analysis.get("matching_keywords", []) or item.title() in analysis.get("resume_supported_keyword_categories", {}).get("skills", []) or item.title() in analysis.get("resume_supported_keyword_categories", {}).get("responsibilities", [])]
     bullets = []
@@ -481,7 +481,7 @@ def _build_demo_materials(analysis: dict, resume_text: str, job_description_text
     cover_letter = (
         f"Dear Hiring Team,\n\n"
         f"I am excited to apply for the {title} role at {company}. My background across {employer_line} includes work in "
-        f"{summary_skills}, and I see strong overlap with the role's emphasis on customer-facing partnership, communication, and execution.\n\n"
+        f"{summary_skills}, and I see strong overlap with the role's emphasis on business partnership, communication, and execution.\n\n"
         f"In my prior experience, I have delivered work such as {accomplishment_line}. That experience required clear communication, "
         f"stakeholder coordination, and reliable follow-through. {strength_lines}\n\n"
         f"I would welcome the opportunity to bring that same client-focused, cross-functional approach to {company}.\n\n"
@@ -517,7 +517,7 @@ def _build_demo_materials(analysis: dict, resume_text: str, job_description_text
         },
         {
             "question": "Why are you interested in this opportunity?",
-            "answer": f"I’m interested because the {title} role combines planning, analysis, and cross-functional partnership in a way that fits the experience already demonstrated in my resume.",
+            "answer": f"I’m interested because the {title} role combines business priorities, analysis, and cross-functional partnership in a way that fits the experience already demonstrated in my resume.",
         },
     ]
     interview_dashboard = _build_interview_dashboard(analysis, summary_skills, gap_note, title, company)
@@ -526,7 +526,7 @@ def _build_demo_materials(analysis: dict, resume_text: str, job_description_text
     return {
         "professional_summary": (
             f"Professional with experience in {summary_skills}. Background includes stakeholder-facing analysis, "
-            f"cross-functional coordination, reporting, and client-support style communication relevant to the {title} opportunity."
+            f"cross-functional coordination, reporting, and role-relevant communication relevant to the {title} opportunity."
         ),
         "tailored_resume_bullets": bullets,
         "cover_letter": cover_letter,
@@ -575,7 +575,7 @@ def generate_career_materials(resume_text: str, job_description_text: str, analy
     if not parsed["interview_dashboard"]:
         parsed["interview_dashboard"] = _build_interview_dashboard(
             analysis,
-            ", ".join(analysis.get("matching_skills", [])[:4]) or "finance analysis and stakeholder communication",
+            ", ".join(analysis.get("matching_skills", [])[:4]) or ", ".join(item.get("label", "") for item in analysis.get("active_role_profile", {}).get("competencies", [])[:3] if item.get("label")) or "analysis and stakeholder communication",
             ", ".join(analysis.get("missing_keywords", [])[:4]) or "role-specific tools and terminology",
             analysis.get("job_title", "Target Finance Role"),
             analysis.get("company_name", "Target Company"),
