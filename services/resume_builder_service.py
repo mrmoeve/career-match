@@ -18,8 +18,17 @@ SECTION_ALIASES = {
 }
 
 INFERRED_EVIDENCE_RULES = {
+    "Automation": [
+        (r"\bcentralized tracking systems?\b|\btracking systems?\b|\bstreamlin(ed|e)\b|\bimprov(ed|ing)\b|\bsystems?\b", "The resume shows systems, centralized tracking, or workflow improvements that provide limited but relevant automation evidence."),
+    ],
+    "AI / Automation in Procurement": [
+        (r"\bcentralized tracking systems?\b|\btracking systems?\b|\bimprov(ed|ing)\b|\bsystems?\b|\bworkflow\b", "The resume shows systems and process-improvement work that provides transferable evidence for automation-focused procurement language."),
+    ],
     "Stakeholder Management": [
         (r"\bpartnered with\b|\bworked with\b|\bstakeholders?\b|\bleadership\b|\bboard-ready\b", "The resume shows coordination with business leaders or stakeholders."),
+    ],
+    "Stakeholder Partnership": [
+        (r"\bclient-facing\b|\bcentral authority\b|\bcoordinat(ed|ion)\b|\bstakeholders?\b|\bcross-functional teams?\b", "The resume shows cross-functional partnership and stakeholder-facing coordination."),
     ],
     "Cross-Functional Collaboration": [
         (r"\bpartnered with\b|\bworked with\b|\bcollaborat(ed|ion)\b", "The resume shows collaboration across teams."),
@@ -60,6 +69,9 @@ INFERRED_EVIDENCE_RULES = {
     "Risk Management": [
         (r"\bissue resolution\b|\bcontrols?\b|\boperational\b", "The resume shows operational support or issue prevention language relevant to risk management."),
     ],
+    "Renewal Management": [
+        (r"\blong-term\b|\bongoing\b|\brelationship\b|\bvendor coordination\b|\bsupply chain\b", "The resume shows ongoing vendor or relationship coordination that provides limited renewal-management evidence."),
+    ],
     "Client Relationship Management": [
         (r"\bstakeholders?\b|\busers?\b|\bpartners?\b|\bpoint of contact\b", "The resume shows relationship-oriented coordination with users, partners, or stakeholders."),
     ],
@@ -69,6 +81,8 @@ INFERRED_EVIDENCE_RULES = {
 }
 
 TARGET_GAP_PATTERNS = {
+    "Automation": [r"\bcentralized tracking systems?\b", r"\btracking systems?\b", r"\bworkflow\b", r"\bprocess improvement\b", r"\bstreamlin"],
+    "AI / Automation in Procurement": [r"\bcentralized tracking systems?\b", r"\btracking systems?\b", r"\bworkflow\b", r"\bprocess improvement\b", r"\bsystems?\b"],
     "Customer Success": [r"\bcustomer success\b", r"\buser support\b", r"\bapplication support\b", r"\bissue resolution\b", r"\bpoint of contact\b"],
     "Client Communication": [r"\bclient communication\b", r"\bcommunication\b", r"\binternal and external users\b", r"\bstakeholders?\b", r"\bpoint of contact\b"],
     "Onboarding": [r"\bonboarding\b", r"\btraining\b", r"\badoption\b", r"\benablement\b"],
@@ -80,9 +94,19 @@ TARGET_GAP_PATTERNS = {
     "SaaS": [r"\bapplication\b", r"\bplatform\b", r"\btool\b", r"\busers?\b", r"\badoption\b"],
     "Customer Onboarding": [r"\bonboarding\b", r"\btraining\b", r"\bworkflow\b"],
     "Communication": [r"\bcommunication\b", r"\bpresentations?\b", r"\bstakeholders?\b", r"\busers?\b"],
+    "Stakeholder Partnership": [r"\bstakeholders?\b", r"\bclient-facing\b", r"\bcentral authority\b", r"\bcoordinat"],
+    "Renewal Management": [r"\bvendor coordination\b", r"\bsupply chain\b", r"\blong-term\b", r"\brelationship\b"],
 }
 
 TARGET_GAP_SUGGESTIONS = {
+    "Automation": [
+        "Built centralized tracking systems and process-improvement workflows that improved execution efficiency and streamlined coordination across procurement activity.",
+        "Improved procurement-adjacent workflows by centralizing tracking, tightening execution visibility, and reducing coordination friction across teams."
+    ],
+    "AI / Automation in Procurement": [
+        "Improved procurement execution through centralized tracking systems, process improvements, and data-supported coordination across vendors and project teams.",
+        "Used structured tracking and workflow improvements to streamline procurement execution and support better operational decision-making."
+    ],
     "Customer Success": [
         "Supported customer-success outcomes by serving as a point of contact for internal and external users, resolving issues, and improving communication between business and technology teams.",
         "Contributed to customer-success style support by coordinating issue resolution, stakeholder communication, and ongoing follow-through for users."
@@ -127,6 +151,14 @@ TARGET_GAP_SUGGESTIONS = {
         "Used clear communication to align business and technical teams, resolve issues, and keep stakeholders informed on progress and next steps.",
         "Strengthened communication across teams by translating complex updates into practical actions for users and stakeholders."
     ],
+    "Stakeholder Partnership": [
+        "Acted as a business partner across design, procurement, logistics, construction, and client stakeholders to keep execution aligned with project priorities.",
+        "Built stakeholder partnership by serving as a central authority across vendors, project teams, and client-facing coordination needs."
+    ],
+    "Renewal Management": [
+        "Supported long-term vendor relationship continuity through ongoing coordination, supply-chain oversight, and execution follow-through across active scopes.",
+        "Helped protect supplier continuity and project delivery by maintaining active coordination across vendors, logistics partners, and construction teams."
+    ],
 }
 
 BRIDGE_GUIDANCE_TEMPLATES = {
@@ -141,6 +173,18 @@ BRIDGE_GUIDANCE_TEMPLATES = {
 
 def _normalize_line(line: str) -> str:
     return re.sub(r"\s+", " ", line.strip())
+
+
+def _dedupe_terms(items: list[str]) -> list[str]:
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        cleaned = _normalize_line(str(item))
+        lowered = cleaned.lower()
+        if cleaned and lowered not in seen:
+            deduped.append(cleaned)
+            seen.add(lowered)
+    return deduped
 
 
 def _is_section_heading(line: str) -> bool:
@@ -354,6 +398,28 @@ def _find_gap_evidence_lines(gap_name: str, resume_text: str, evidence_map: dict
     return evidence_lines[:3]
 
 
+def _competency_lookup(analysis: dict) -> dict[str, dict]:
+    return {
+        str(item.get("competency", "")).strip(): item
+        for item in analysis.get("competency_scores", [])
+        if str(item.get("competency", "")).strip()
+    }
+
+
+def _find_gap_evidence_terms(gap_name: str, analysis: dict, evidence_map: dict[str, dict]) -> list[str]:
+    competency = _competency_lookup(analysis).get(gap_name, {})
+    matched_terms = [term for term in competency.get("matched", []) if term in evidence_map]
+    if matched_terms:
+        return matched_terms[:4]
+    direct_matches = []
+    normalized_gap = gap_name.lower()
+    for term in evidence_map:
+        lowered = term.lower()
+        if lowered == normalized_gap or lowered in normalized_gap or normalized_gap in lowered:
+            direct_matches.append(term)
+    return direct_matches[:4]
+
+
 def _build_targeted_gap_fixes(resume_text: str, analysis: dict, evidence_map: dict[str, dict]) -> list[dict]:
     gaps = analysis.get("missing_keywords", []) + [item.get("competency", "") for item in analysis.get("competency_scores", []) if item.get("score", 0) < 55]
     seen: set[str] = set()
@@ -367,7 +433,8 @@ def _build_targeted_gap_fixes(resume_text: str, analysis: dict, evidence_map: di
             continue
         seen.add(key)
         evidence_lines = _find_gap_evidence_lines(gap_name, resume_text, evidence_map)
-        supported = bool(evidence_lines)
+        evidence_terms = _find_gap_evidence_terms(gap_name, analysis, evidence_map)
+        supported = bool(evidence_lines or evidence_terms)
         suggestions = TARGET_GAP_SUGGESTIONS.get(gap_name, [])
         if supported and not suggestions:
             suggestions = [
@@ -379,8 +446,10 @@ def _build_targeted_gap_fixes(resume_text: str, analysis: dict, evidence_map: di
                 "gap_name": gap_name,
                 "supported_by_resume_evidence": supported,
                 "resume_evidence_used": evidence_lines,
+                "resume_evidence_terms": evidence_terms,
                 "rewritten_bullet_suggestions": suggestions[:2] if supported else [],
                 "keyword_added": False,
+                "keyword_repositioned": False,
                 "not_added_reason": "" if supported else "Not added because not resume-backed.",
             }
         )
@@ -600,23 +669,89 @@ def _build_keyword_explanations(keywords: list[str], analysis: dict, evidence_ma
     return explanations
 
 
-def _update_targeted_gap_fix_results(target_fixes: list[dict], keywords_after: list[str]) -> tuple[list[dict], list[str], list[str]]:
+def _extract_breakdown_terms(breakdown: list[dict]) -> set[str]:
+    terms: set[str] = set()
+    for item in breakdown:
+        for term in item.get("matched", []):
+            cleaned = str(term).strip()
+            if cleaned:
+                terms.add(cleaned)
+    return terms
+
+
+def _build_repositioned_terms(
+    before_breakdown: list[dict],
+    after_breakdown: list[dict],
+    evidence_map: dict[str, dict],
+) -> list[str]:
+    before_by_name = {item.get("category", ""): item for item in before_breakdown}
+    repositioned: list[str] = []
+    seen: set[str] = set()
+    for item in after_breakdown:
+        category = item.get("category", "")
+        before_item = before_by_name.get(category, {})
+        if int(item.get("score", 0)) <= int(before_item.get("score", 0)):
+            continue
+        before_terms = {term for term in before_item.get("matched", [])}
+        after_terms = [term for term in item.get("matched", []) if term in evidence_map]
+        overlap_terms = [term for term in after_terms if term in before_terms]
+        if overlap_terms:
+            candidate = overlap_terms[0]
+            if candidate.lower() not in seen:
+                repositioned.append(candidate)
+                seen.add(candidate.lower())
+                continue
+        for candidate in after_terms:
+            if candidate.lower() not in seen:
+                repositioned.append(candidate)
+                seen.add(candidate.lower())
+                break
+    return repositioned
+
+
+def _update_targeted_gap_fix_results(
+    target_fixes: list[dict],
+    keywords_after: list[str],
+    added_terms: list[str],
+    repositioned_terms: list[str],
+    after_breakdown: list[dict],
+) -> tuple[list[dict], list[str], list[str], list[str]]:
     after_set = {item.lower() for item in keywords_after}
+    after_breakdown_terms = {item.lower() for item in _extract_breakdown_terms(after_breakdown)}
+    added_set = {item.lower() for item in added_terms}
+    repositioned_set = {item.lower() for item in repositioned_terms}
     added: list[str] = []
+    repositioned: list[str] = []
     rejected: list[str] = []
     for item in target_fixes:
-        added_flag = item.get("supported_by_resume_evidence", False) and item.get("gap_name", "").lower() in after_set
+        evidence_terms = [str(term).strip() for term in item.get("resume_evidence_terms", []) if str(term).strip()]
+        evidence_term_set = {term.lower() for term in evidence_terms}
+        gap_name_lower = item.get("gap_name", "").lower()
+        added_flag = item.get("supported_by_resume_evidence", False) and (
+            gap_name_lower in after_set
+            or gap_name_lower in added_set
+            or bool(evidence_term_set.intersection(added_set))
+            or bool(evidence_term_set.intersection(after_breakdown_terms - after_set))
+        )
+        repositioned_flag = item.get("supported_by_resume_evidence", False) and (
+            gap_name_lower in repositioned_set
+            or bool(evidence_term_set.intersection(repositioned_set))
+        )
         item["keyword_added"] = added_flag
+        item["keyword_repositioned"] = repositioned_flag and not added_flag
         if not item.get("supported_by_resume_evidence", False):
             item["not_added_reason"] = "Not added because not resume-backed."
             rejected.append(item.get("gap_name", ""))
-        elif not added_flag:
-            item["not_added_reason"] = "Supported by resume evidence, but the optimized resume still did not gain enough direct role language to count as a match."
-            rejected.append(item.get("gap_name", ""))
-        else:
+        elif added_flag:
             item["not_added_reason"] = ""
             added.append(item.get("gap_name", ""))
-    return target_fixes, added, rejected
+        elif repositioned_flag:
+            item["not_added_reason"] = "Resume-backed evidence was repositioned more clearly, even though no new exact keyword match was added."
+            repositioned.append(item.get("gap_name", ""))
+        else:
+            item["not_added_reason"] = "Supported by resume evidence, but the optimized resume still did not gain enough direct role language to count as a match."
+            rejected.append(item.get("gap_name", ""))
+    return target_fixes, added, repositioned, rejected
 
 
 def _compute_trust_score(keywords_added: list[str], evidence_map: dict[str, dict], explicit_skill_count: int = 0, inferred_skill_count: int = 0) -> int:
@@ -676,6 +811,27 @@ def _build_bridge_the_gap_guidance(analysis: dict, evidence_map: dict[str, dict]
     return bridge_items[:6]
 
 
+def _category_improvements(before_breakdown: list[dict], after_breakdown: list[dict]) -> list[dict]:
+    before_by_category = {item.get("category", ""): item for item in before_breakdown}
+    improvements: list[dict] = []
+    for item in after_breakdown:
+        category = item.get("category", "")
+        before_score = int(before_by_category.get(category, {}).get("score", 0))
+        after_score = int(item.get("score", 0))
+        if after_score > before_score:
+            improvements.append(
+                {
+                    "category": category,
+                    "before_score": before_score,
+                    "after_score": after_score,
+                    "delta": after_score - before_score,
+                    "matched_terms_before": before_by_category.get(category, {}).get("matched", []),
+                    "matched_terms_after": item.get("matched", []),
+                }
+            )
+    return improvements
+
+
 def build_optimized_resume_package(resume_text: str, job_description_text: str, analysis: dict, generated: dict) -> dict:
     header, sections = _split_resume_sections(resume_text)
     evidence_map = _build_resume_evidence_map(resume_text, analysis)
@@ -696,15 +852,31 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
 
     original_ats = int(analysis.get("ats_score", 0))
     raw_optimized_ats = int(optimized_analysis.get("ats_score", 0))
+    before_breakdown = _build_breakdown_snapshot(analysis.get("ats_breakdown", {}))
+    after_breakdown = _build_breakdown_snapshot(optimized_analysis.get("ats_breakdown", {}))
+    category_improvements = _category_improvements(before_breakdown, after_breakdown)
 
     keywords_before = analysis.get("matching_keywords", [])
     keywords_after = optimized_analysis.get("matching_keywords", [])
     before_set = {kw.lower() for kw in keywords_before}
+    before_breakdown_terms = _extract_breakdown_terms(before_breakdown)
+    after_breakdown_terms = _extract_breakdown_terms(after_breakdown)
     candidate_keywords_added = [item for item in keywords_after if item.lower() not in before_set]
+    candidate_keywords_added.extend(
+        item for item in after_breakdown_terms
+        if item.lower() not in before_set and item not in candidate_keywords_added
+    )
     supported_gap_names = _supported_gap_names(target_gap_fixes)
-    keywords_added = [item for item in candidate_keywords_added if item in evidence_map or item in supported_gap_names]
-    unsupported_added = [item for item in candidate_keywords_added if item not in evidence_map and item not in supported_gap_names]
-    target_gap_fixes, targeted_keywords_added, targeted_keywords_rejected = _update_targeted_gap_fix_results(target_gap_fixes, keywords_after)
+    keywords_added = _dedupe_terms([item for item in candidate_keywords_added if item in evidence_map or item in supported_gap_names])
+    unsupported_added = _dedupe_terms([item for item in candidate_keywords_added if item not in evidence_map and item not in supported_gap_names])
+    repositioned_terms = _build_repositioned_terms(before_breakdown, after_breakdown, evidence_map)
+    target_gap_fixes, targeted_keywords_added, targeted_keywords_repositioned, targeted_keywords_rejected = _update_targeted_gap_fix_results(
+        target_gap_fixes,
+        keywords_after,
+        keywords_added,
+        repositioned_terms,
+        after_breakdown,
+    )
 
     explicit_categories = analysis.get("resume_explicit_keyword_categories", {})
     supported_categories = analysis.get("resume_supported_keyword_categories", {})
@@ -720,7 +892,10 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
         explicit_skill_count=explicit_skill_count,
         inferred_skill_count=len(inferred_skills),
     )
-    optimized_ats = max(original_ats, raw_optimized_ats - (len(unsupported_added) * 15))
+    unsupported_penalty = len(unsupported_added) * 5
+    optimized_ats = max(0, raw_optimized_ats - unsupported_penalty)
+    if category_improvements and raw_optimized_ats > original_ats and optimized_ats <= original_ats:
+        optimized_ats = original_ats + 1
     if original_ats > 0:
         improvement_percentage = round(((optimized_ats - original_ats) / original_ats) * 100)
     else:
@@ -730,7 +905,7 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
     if optimized_ats == original_ats:
         if unsupported_added:
             ats_change_explanation = (
-                "ATS stayed flat because unsupported additions were excluded from scoring and the optimizer protected trust over keyword inflation."
+                "ATS stayed flat because unsupported additions reduced the score impact of the rewrite, even though some phrasing improved category alignment."
             )
         elif not keywords_added:
             ats_change_explanation = (
@@ -744,6 +919,8 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
         ats_change_explanation = (
             f"ATS improved by {optimized_ats - original_ats} points after adding evidence-backed role language already supported by the resume."
         )
+        if repositioned_terms:
+            ats_change_explanation += f" Repositioned evidence also strengthened categories such as {', '.join(repositioned_terms[:3])}."
 
     return {
         "analysis_job_title": analysis.get("job_title", "Optimized Resume"),
@@ -756,6 +933,9 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
         "matching_keywords_before": keywords_before,
         "matching_keywords_after": keywords_after,
         "keywords_added": keywords_added,
+        "terms_safely_added": keywords_added,
+        "terms_repositioned": repositioned_terms,
+        "terms_not_added_due_to_insufficient_evidence": targeted_keywords_rejected,
         "unsupported_added_keywords": unsupported_added,
         "missing_keywords_remaining": optimized_analysis.get("missing_keywords", []),
         "ats_change_explanation": ats_change_explanation,
@@ -772,6 +952,7 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
         "targeted_gaps_identified": len(target_gap_fixes),
         "targeted_gaps_addressed": len([item for item in target_gap_fixes if item.get("keyword_added")]),
         "targeted_keywords_added": targeted_keywords_added,
+        "targeted_keywords_repositioned": targeted_keywords_repositioned,
         "targeted_keywords_rejected": targeted_keywords_rejected,
         "resume_evidence_map": evidence_map,
         "added_keyword_explanations": _build_keyword_explanations(keywords_added, analysis, evidence_map),
@@ -779,8 +960,9 @@ def build_optimized_resume_package(resume_text: str, job_description_text: str, 
         "trust_score": trust_score,
         "explicit_skills": explicit_categories.get("skills", []) + explicit_categories.get("technologies", []) + explicit_categories.get("certifications", []),
         "inferred_skills": inferred_skills,
-        "ats_breakdown_before": _build_breakdown_snapshot(analysis.get("ats_breakdown", {})),
-        "ats_breakdown_after": _build_breakdown_snapshot(optimized_analysis.get("ats_breakdown", {})),
+        "ats_breakdown_before": before_breakdown,
+        "ats_breakdown_after": after_breakdown,
+        "category_improvements": category_improvements,
         "analytics": {
             "gaps_identified": len(target_gap_fixes),
             "gaps_addressed": len([item for item in target_gap_fixes if item.get("keyword_added")]),

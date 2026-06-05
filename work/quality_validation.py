@@ -85,6 +85,17 @@ AI and automation in procurement, G&A category management, and systems/process i
 The role partners across finance, legal, procurement, and business teams to improve sourcing decisions and operating leverage.
 """
 
+CYERA_JOB_TEXT = """Procurement Specialist
+Cyera
+New York, NY, United States
+
+Cyera is hiring a Procurement Specialist to own indirect procurement across software, SaaS, marketing, and professional services.
+The role covers the full procurement lifecycle, vendor management, renewals, cross-functional partnership, supplier sourcing,
+cost improvement, risk and compliance management, spend analytics, automation, and AI tools.
+Required qualifications include procurement experience, strong analytical skills, vendor negotiation, procurement and ERP platforms,
+excellent communication, and the ability to influence senior stakeholders.
+"""
+
 
 def main() -> None:
     resume_text = Path("work/test_assets/sample_resume.txt").read_text()
@@ -156,6 +167,24 @@ def main() -> None:
     print("procurement_customer_success_recommendations", sum(1 for item in procurement_categories if item == "customer_success_foundations"))
     print("procurement_account_management_recommendations", sum(1 for item in procurement_categories if item == "client_relationship_growth"))
     print("procurement_cross_role_contamination_passed", not any(item in {"customer_success_foundations", "client_relationship_growth"} for item in procurement_categories))
+
+    talisa_resume = Path("work/test_assets/talisa_procurement_resume.txt").read_text()
+    cyera_analysis = compare_resume_to_job(talisa_resume, CYERA_JOB_TEXT)
+    cyera_builder = build_optimized_resume_package(talisa_resume, CYERA_JOB_TEXT, cyera_analysis, {"professional_summary": "", "tailored_resume_bullets": []})
+    print("cyera_ats_before", cyera_analysis.get("ats_score"))
+    print("cyera_ats_after", cyera_builder.get("optimized_ats_score"))
+    print("cyera_keywords_added", cyera_builder.get("keywords_added"))
+    print("cyera_terms_safely_added", cyera_builder.get("terms_safely_added"))
+    print("cyera_terms_repositioned", cyera_builder.get("terms_repositioned"))
+    print("cyera_terms_not_added", cyera_builder.get("terms_not_added_due_to_insufficient_evidence"))
+    print("cyera_unsupported_added", cyera_builder.get("unsupported_added_keywords"))
+    print("cyera_category_improvements", [item.get("category") for item in cyera_builder.get("category_improvements", [])])
+    print(
+        "cyera_consistency_test_passed",
+        not cyera_builder.get("category_improvements")
+        or cyera_builder.get("optimized_ats_score", 0) > cyera_builder.get("original_ats_score", 0)
+        or "unsupported additions" in cyera_builder.get("ats_change_explanation", "").lower(),
+    )
 
 
 if __name__ == "__main__":

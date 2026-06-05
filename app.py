@@ -2130,8 +2130,14 @@ def render_resume_builder_tab() -> None:
 
     added = ", ".join(builder.get("keywords_added", [])) or "None identified"
     st.write(f"**Keywords added:** {added}")
+    safely_added = ", ".join(builder.get("terms_safely_added", [])) or "None identified"
+    st.write(f"**Terms safely added:** {safely_added}")
+    repositioned_terms = ", ".join(builder.get("terms_repositioned", [])) or "None identified"
+    st.write(f"**Terms repositioned from existing resume evidence:** {repositioned_terms}")
     not_added = ", ".join(builder.get("targeted_keywords_rejected", [])) or "None identified"
     st.write(f"**Keywords not added:** {not_added}")
+    insufficient_terms = ", ".join(builder.get("terms_not_added_due_to_insufficient_evidence", [])) or "None identified"
+    st.write(f"**Terms not added due to insufficient evidence:** {insufficient_terms}")
     if builder.get("unsupported_added_keywords"):
         st.error(
             "Unsupported additions detected and penalized in ATS scoring: "
@@ -2157,6 +2163,7 @@ def render_resume_builder_tab() -> None:
             else:
                 st.write("- No ATS-safe rewrite was added.")
             st.write(f"**Keyword added:** {'Yes' if item.get('keyword_added') else 'No'}")
+            st.write(f"**Keyword repositioned:** {'Yes' if item.get('keyword_repositioned') else 'No'}")
             if item.get("not_added_reason"):
                 st.caption(item.get("not_added_reason", ""))
     coach_diagnostics = _resume_coach_diagnostics(builder)
