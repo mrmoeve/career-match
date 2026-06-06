@@ -83,13 +83,6 @@ def build_full_report_docx(package: dict) -> bytes:
         for item in analysis["job_fit"].get("reasoning", []):
             document.add_paragraph(item, style="List Bullet")
 
-    document.add_heading("Professional Summary", level=1)
-    document.add_paragraph(generated["professional_summary"])
-
-    document.add_heading("Tailored Resume Bullets", level=1)
-    for bullet in generated["tailored_resume_bullets"]:
-        document.add_paragraph(bullet, style="List Bullet")
-
     document.add_heading("Cover Letter", level=1)
     document.add_paragraph(generated["cover_letter"])
 
@@ -223,13 +216,6 @@ def build_full_report_pdf(package: dict) -> bytes:
         add_paragraph("Job fit reasoning", "Heading2")
         for item in analysis["job_fit"].get("reasoning", []):
             add_paragraph(f"- {item}")
-
-    add_paragraph("Professional Summary", "Heading1")
-    add_paragraph(generated["professional_summary"])
-
-    add_paragraph("Tailored Resume Bullets", "Heading1")
-    for bullet in generated["tailored_resume_bullets"]:
-        add_paragraph(f"- {bullet}")
 
     add_paragraph("Cover Letter", "Heading1")
     add_paragraph(generated["cover_letter"])

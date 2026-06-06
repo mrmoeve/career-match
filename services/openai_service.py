@@ -528,7 +528,6 @@ def _build_demo_materials(analysis: dict, resume_text: str, job_description_text
             f"Professional with experience in {summary_skills}. Background includes stakeholder-facing analysis, "
             f"cross-functional coordination, reporting, and role-relevant communication relevant to the {title} opportunity."
         ),
-        "tailored_resume_bullets": bullets,
         "cover_letter": cover_letter,
         "linkedin_recruiter_message": linkedin_message,
         "interview_questions_and_answers": interview_items,
@@ -564,7 +563,6 @@ def generate_career_materials(resume_text: str, job_description_text: str, analy
         return _build_demo_materials(analysis, resume_text, job_description_text)
 
     parsed.setdefault("professional_summary", "")
-    parsed.setdefault("tailored_resume_bullets", [])
     parsed.setdefault("cover_letter", "")
     parsed.setdefault("linkedin_recruiter_message", "")
     parsed.setdefault("interview_questions_and_answers", [])

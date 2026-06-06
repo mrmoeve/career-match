@@ -319,16 +319,6 @@ def _resume_match_sections(package: dict) -> list[dict]:
     return sections
 
 
-def _tailored_resume_sections(package: dict) -> list[dict]:
-    generated = package.get("generated", {}) or {}
-    return [
-        {"heading": "Professional Summary", "body": generated.get("professional_summary", "")},
-        {"heading": "Tailored Resume Bullet Points", "bullets": _bullet_lines(generated.get("tailored_resume_bullets", []))},
-        {"heading": "Evidence-Backed Recommendations", "bullets": _next_actions(package)},
-        {"heading": "Warnings", "bullets": _warnings(package)},
-    ]
-
-
 def _resume_builder_sections(package: dict) -> list[dict]:
     builder = package.get("generated", {}).get("resume_builder", {}) or {}
     gain_rows = [["Category", "Gain", "Matched After"]]
@@ -489,8 +479,6 @@ def _full_report_sections(package: dict) -> list[dict]:
     sections = []
     sections.extend(_resume_match_sections(package))
     sections.append({"page_break": True})
-    sections.extend(_tailored_resume_sections(package))
-    sections.append({"page_break": True})
     sections.extend(_resume_builder_sections(package))
     sections.append({"page_break": True})
     sections.extend(_evidence_sections(package))
@@ -510,7 +498,6 @@ def _full_report_sections(package: dict) -> list[dict]:
 
 TAB_SECTION_BUILDERS = {
     "Resume Match": _resume_match_sections,
-    "Tailored Resume": _tailored_resume_sections,
     "Resume Builder": _resume_builder_sections,
     "Evidence": _evidence_sections,
     "Career Coach": _career_coach_sections,

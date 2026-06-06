@@ -12,7 +12,6 @@ from services.resume_builder_service import build_optimized_resume_package
 
 TAB_NAMES = [
     "Resume Match",
-    "Tailored Resume",
     "Resume Builder",
     "Evidence",
     "Career Coach",
@@ -83,8 +82,6 @@ def _build_generated(analysis: dict, builder: dict) -> dict:
         ],
     }
     return {
-        "professional_summary": f"Procurement leader with resume-backed experience in {matched}.",
-        "tailored_resume_bullets": builder.get("recruiter_ready_bullets", [])[:5] or ["Reframed real procurement accomplishments using role language."],
         "cover_letter": f"I am interested in the {title} role at {company} because my resume shows evidence-backed experience in {matched}.",
         "linkedin_recruiter_message": f"Hello, I am reaching out regarding the {title} opportunity at {company}. My background includes {matched}.",
         "interview_questions_and_answers": [{"question": "Why this role?", "answer": f"My background in {matched} aligns with the role while I continue closing gaps in {gaps}."}],
@@ -102,7 +99,7 @@ def main() -> None:
     analysis = compare_resume_to_job(resume_text, job_text)
     analysis["job_title"] = "Procurement"
     analysis["company_name"] = "Clay"
-    builder = build_optimized_resume_package(resume_text, job_text, analysis, {"professional_summary": "", "tailored_resume_bullets": []})
+    builder = build_optimized_resume_package(resume_text, job_text, analysis, {})
     generated = _build_generated(analysis, builder)
 
     package = {
@@ -171,6 +168,8 @@ def main() -> None:
     print("resume_match_pdf_sections", resume_match_section_checks)
     print("unsupported_terms_not_in_ats_gain", contradiction_free)
     print("unsupported_terms_not_counted_as_direct_evidence", unsupported_not_direct)
+    print("legacy_tailored_resume_not_in_filenames", all("Tailored_Resume" not in name and "Tailored Resume" not in name for name in sample_filenames))
+    print("legacy_tailored_resume_not_in_payloads", all("Tailored Resume" not in build_pdf_payload(tab, package).get("text_dump", "") for tab in TAB_NAMES))
     print("sample_pdf_filenames", sample_filenames[:5])
 
     overall_pass = (
@@ -181,6 +180,8 @@ def main() -> None:
         and contradiction_free
         and all(resume_match_section_checks.values())
         and unsupported_not_direct
+        and all("Tailored_Resume" not in name and "Tailored Resume" not in name for name in sample_filenames)
+        and all("Tailored Resume" not in build_pdf_payload(tab, package).get("text_dump", "") for tab in TAB_NAMES)
     )
     print("pdf_export_validation_passed", overall_pass)
     if not overall_pass:

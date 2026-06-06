@@ -132,6 +132,11 @@ excellent communication, and the ability to influence senior stakeholders.
 
 def main() -> None:
     resume_text = Path("work/test_assets/sample_resume.txt").read_text()
+    app_source = Path("app.py").read_text()
+    print(
+        "legacy_tailored_resume_removed_from_active_render_path",
+        "Tailored resume content" not in app_source and "render_tailored" not in app_source,
+    )
 
     if BeautifulSoup is not None and _extract_json_ld_objects is not None:
         soup = BeautifulSoup(MELTWATER_HTML, "html.parser")
@@ -147,8 +152,7 @@ def main() -> None:
         title = company = location = date_posted = category = description = "BeautifulSoup unavailable"
 
     analysis = compare_resume_to_job(resume_text, MELTWATER_JOB_TEXT)
-    generated = {"professional_summary": "", "tailored_resume_bullets": []}
-    builder = build_optimized_resume_package(resume_text, MELTWATER_JOB_TEXT, analysis, generated)
+    builder = build_optimized_resume_package(resume_text, MELTWATER_JOB_TEXT, analysis, {})
 
     optimized_lines = builder["optimized_resume_text"].splitlines()
     skills_section_line = ""
@@ -258,7 +262,7 @@ def main() -> None:
         not any(item.get("competency") == "Customer Success" for item in project_manager_analysis.get("competency_scores", [])),
     )
     cyera_analysis = compare_resume_to_job(talisa_resume, CYERA_JOB_TEXT)
-    cyera_builder = build_optimized_resume_package(talisa_resume, CYERA_JOB_TEXT, cyera_analysis, {"professional_summary": "", "tailored_resume_bullets": []})
+    cyera_builder = build_optimized_resume_package(talisa_resume, CYERA_JOB_TEXT, cyera_analysis, {})
     print("cyera_ats_before", cyera_analysis.get("ats_score"))
     print("cyera_ats_after", cyera_builder.get("optimized_ats_score"))
     print("cyera_keywords_added", cyera_builder.get("keywords_added"))
@@ -283,7 +287,7 @@ def main() -> None:
 
     pulte_job_text = Path("work/test_assets/pultegroup_procurement_agent_job.txt").read_text()
     pulte_analysis = compare_resume_to_job(talisa_resume, pulte_job_text)
-    pulte_builder = build_optimized_resume_package(talisa_resume, pulte_job_text, pulte_analysis, {"professional_summary": "", "tailored_resume_bullets": []})
+    pulte_builder = build_optimized_resume_package(talisa_resume, pulte_job_text, pulte_analysis, {})
     print("pulte_ats_before", pulte_analysis.get("ats_score"))
     print("pulte_ats_after", pulte_builder.get("optimized_ats_score"))
     print("pulte_ats_improvement", pulte_builder.get("ats_improvement_percentage"))
@@ -307,7 +311,7 @@ def main() -> None:
 
     clay_job_text = Path("work/test_assets/clay_procurement_job.txt").read_text()
     clay_analysis = compare_resume_to_job(talisa_resume, clay_job_text)
-    clay_builder = build_optimized_resume_package(talisa_resume, clay_job_text, clay_analysis, {"professional_summary": "", "tailored_resume_bullets": []})
+    clay_builder = build_optimized_resume_package(talisa_resume, clay_job_text, clay_analysis, {})
     print("clay_ats_before", clay_analysis.get("ats_score"))
     print("clay_ats_after", clay_builder.get("optimized_ats_score"))
     print("clay_remaining_gaps", clay_builder.get("missing_keywords_remaining"))

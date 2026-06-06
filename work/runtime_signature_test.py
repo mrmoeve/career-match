@@ -34,8 +34,6 @@ def main() -> None:
                 "analysis_job_title": "Test",
                 "optimized_resume_text": "TEST USER\nemail@example.com\n\nPROFESSIONAL SUMMARY\nOptimized summary",
             },
-            "professional_summary": "Summary",
-            "tailored_resume_bullets": [],
             "cover_letter": "",
             "linkedin_recruiter_message": "",
             "interview_questions_and_answers": [],

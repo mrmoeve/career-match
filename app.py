@@ -46,6 +46,8 @@ from database.db import (
     save_pdf_download,
     save_page_view,
     save_resume_stub,
+    sanitize_application_payload,
+    sanitize_generated_payload,
     set_user_admin,
     update_contact_message_status,
     update_user_profile,
@@ -87,6 +89,19 @@ VALID_VIEWS = {"home", "auth", "app", "contact", "privacy", "terms", "pro", "adm
 BASE_APP_PAGES = ["Dashboard", "Workflow", "Analysis History", "My Resumes", "Pro", "Subscription", "Contact", "Privacy Policy", "Terms", "User Profile"]
 ADMIN_VIEW = "admin"
 DEFAULT_ADMIN_EMAILS = {"mrmoeve@gmail.com", "talisa.salvador@gmail.com"}
+LEGACY_TAILORED_RESUME_LABELS = {"Tailored Resume"}
+EXPECTED_WORKFLOW_TABS = [
+    "Upload",
+    "Resume Match",
+    "Resume Builder",
+    "Evidence",
+    "Career Coach",
+    "Cover Letter",
+    "Interview Intelligence",
+    "LinkedIn Message",
+    "Thank You Email",
+    "Export",
+]
 
 
 st.set_page_config(
@@ -1213,13 +1228,29 @@ def init_state() -> None:
         st.session_state.setdefault(key, value)
     if not st.session_state.get("session_id"):
         st.session_state["session_id"] = secrets.token_urlsafe(12)
+    _clear_legacy_tailored_resume_state()
+
+
+def _clear_legacy_tailored_resume_state() -> None:
+    for key in ("tailored_resume", "tailored_resume_bullets", "Tailored_Resume"):
+        st.session_state.pop(key, None)
+    generated = st.session_state.get("generated")
+    if isinstance(generated, dict):
+        st.session_state["generated"] = sanitize_generated_payload(generated)
+
+
+def _workflow_tab_labels() -> list[str]:
+    labels = [label for label in EXPECTED_WORKFLOW_TABS if label not in LEGACY_TAILORED_RESUME_LABELS]
+    if labels != EXPECTED_WORKFLOW_TABS:
+        raise RuntimeError(f"Workflow tab configuration mismatch: {labels}")
+    return labels
 
 
 def _application_payload() -> dict:
-    return {
+    return sanitize_application_payload({
         "analysis": st.session_state.get("analysis"),
         "generated": st.session_state.get("generated"),
-    }
+    })
 
 
 def _reset_analysis_outputs(reason: str) -> None:
@@ -1233,6 +1264,7 @@ def _reset_analysis_outputs(reason: str) -> None:
     st.session_state["resume_coach_messages"] = []
     st.session_state["resume_coach_prompt_input"] = ""
     st.session_state["resume_coach_logged_opened"] = False
+    _clear_legacy_tailored_resume_state()
 
 
 def _sync_active_role_profile() -> None:
@@ -1457,6 +1489,7 @@ def _rebuild_generated_outputs(resume_text: str, job_text: str, analysis: dict) 
         job_description_text=job_text,
         analysis=analysis,
     )
+    generated = sanitize_generated_payload(generated)
     generated["resume_builder"] = build_optimized_resume_package(
         resume_text=resume_text,
         job_description_text=job_text,
@@ -1681,6 +1714,9 @@ def _pdf_export_package(analysis: dict, resume_text: str, job_text: str, generat
 
 
 def render_pdf_download_button(tab_name, analysis, resume_text, job_text, generated_outputs):
+    if tab_name in LEGACY_TAILORED_RESUME_LABELS:
+        logger.warning("Blocked legacy PDF export render for tab=%s", tab_name)
+        return
     analysis = analysis or {}
     has_results = bool(
         analysis
@@ -1981,6 +2017,7 @@ def render_upload_tab() -> None:
                     st.session_state["job_text"],
                     st.session_state["analysis"],
                 )
+                generated = sanitize_generated_payload(generated)
                 st.session_state["optimized_resume_text"] = generated["resume_builder"]["optimized_resume_text"]
                 st.session_state["generated"] = generated
                 st.session_state["application_saved"] = False
@@ -2433,29 +2470,6 @@ def render_match_tab() -> None:
 
     render_learning_resources_section("match")
     render_feedback_section()
-
-
-def render_tailored_resume_tab() -> None:
-    st.subheader("Tailored resume content")
-    analysis = st.session_state.get("analysis", {}) or {}
-    generated = st.session_state.get("generated")
-    if not generated:
-        st.info("Your tailored resume content will appear here after analysis.")
-        return
-    render_pdf_download_button(
-        "Tailored Resume",
-        analysis,
-        st.session_state.get("resume_text", ""),
-        st.session_state.get("job_text", ""),
-        generated,
-    )
-    _render_role_match_snapshot(analysis, "Recruiter Summary Card")
-
-    st.write("**Professional summary**")
-    st.text_area("Summary", generated["professional_summary"], height=140)
-    st.write("**Tailored bullet points**")
-    bullet_text = "\n".join(f"- {item}" for item in generated["tailored_resume_bullets"])
-    st.text_area("Resume bullets", bullet_text, height=260)
 
 
 def render_resume_builder_tab() -> None:
@@ -3256,7 +3270,7 @@ def render_history_page() -> None:
         payload_json = item.get("payload_json", "")
         if payload_json:
             try:
-                payload = json.loads(payload_json)
+                payload = sanitize_application_payload(json.loads(payload_json))
             except json.JSONDecodeError:
                 payload = {}
         saved_analysis = payload.get("analysis", {})
@@ -3300,11 +3314,11 @@ def render_history_page() -> None:
         payload_json = item.get("payload_json", "")
         if payload_json:
             try:
-                payload = json.loads(payload_json)
+                payload = sanitize_application_payload(json.loads(payload_json))
             except json.JSONDecodeError:
                 payload = {}
         analysis = payload.get("analysis", {})
-        generated = payload.get("generated", {})
+        generated = sanitize_generated_payload(payload.get("generated", {}))
         recommendation = (analysis.get("job_fit", {}) or {}).get("recommendation", "Not available")
         haystack = " ".join([
             str(item.get("company_name", "")),
@@ -3356,7 +3370,7 @@ def render_history_page() -> None:
                     st.write("**Semantic Matches:** None identified")
             if st.button("Reopen Analysis", key=f"reopen_{item['id']}"):
                 st.session_state["analysis"] = display_analysis or None
-                rebuilt_generated = generated or {}
+                rebuilt_generated = sanitize_generated_payload(generated or {})
                 st.session_state["resume_text"] = (
                     item.get("original_resume_text")
                     or item.get("resume_text")
@@ -3373,7 +3387,7 @@ def render_history_page() -> None:
                             st.session_state["job_text"],
                             st.session_state["analysis"],
                         )
-                st.session_state["generated"] = rebuilt_generated or None
+                st.session_state["generated"] = sanitize_generated_payload(rebuilt_generated or {}) or None
                 if rebuilt_generated and rebuilt_generated.get("resume_builder"):
                     st.session_state["optimized_resume_text"] = rebuilt_generated["resume_builder"].get("optimized_resume_text", "")
                 st.session_state["resume_coach_logged_opened"] = False
@@ -3385,7 +3399,7 @@ def render_history_page() -> None:
                 st.rerun()
             if st.button("Duplicate Analysis", key=f"duplicate_{item['id']}"):
                 st.session_state["analysis"] = display_analysis or None
-                rebuilt_generated = generated or {}
+                rebuilt_generated = sanitize_generated_payload(generated or {})
                 st.session_state["resume_text"] = (
                     item.get("original_resume_text")
                     or item.get("resume_text")
@@ -3402,7 +3416,7 @@ def render_history_page() -> None:
                             st.session_state["job_text"],
                             st.session_state["analysis"],
                         )
-                st.session_state["generated"] = rebuilt_generated or None
+                st.session_state["generated"] = sanitize_generated_payload(rebuilt_generated or {}) or None
                 st.session_state["resume_coach_logged_opened"] = False
                 st.session_state["active_role_profile"] = st.session_state["analysis"].get("active_role_profile", {})
                 st.session_state["active_role_fingerprint"] = st.session_state["analysis"].get("role_profile_fingerprint", "")
@@ -3769,43 +3783,31 @@ def render_application_shell() -> None:
     active_role_profile = (st.session_state.get("analysis") or {}).get("active_role_profile") or st.session_state.get("active_role_profile", {})
     if active_role_profile:
         st.caption(f"Active Role Profile: {active_role_profile.get('headline', active_role_profile.get('family', 'General Professional Role'))}")
-    tabs = st.tabs(
-        [
-            "Upload",
-            "Resume Match",
-            "Tailored Resume",
-            "Resume Builder",
-            "Evidence",
-            "Career Coach",
-            "Cover Letter",
-            "Interview Intelligence",
-            "LinkedIn Message",
-            "Thank You Email",
-            "Export",
-        ]
-    )
+    tab_labels = _workflow_tab_labels()
+    if tab_labels != EXPECTED_WORKFLOW_TABS or any(label in LEGACY_TAILORED_RESUME_LABELS for label in tab_labels):
+        logger.error("Invalid workflow tab labels detected: %s", tab_labels)
+        raise RuntimeError(f"Invalid workflow tab labels: {tab_labels}")
+    tabs = st.tabs(tab_labels)
 
     with tabs[0]:
         render_upload_tab()
     with tabs[1]:
         render_match_tab()
     with tabs[2]:
-        render_tailored_resume_tab()
-    with tabs[3]:
         render_resume_builder_tab()
-    with tabs[4]:
+    with tabs[3]:
         render_evidence_tab()
-    with tabs[5]:
+    with tabs[4]:
         render_career_coach_tab()
-    with tabs[6]:
+    with tabs[5]:
         render_cover_letter_tab()
-    with tabs[7]:
+    with tabs[6]:
         render_interview_tab()
-    with tabs[8]:
+    with tabs[7]:
         render_linkedin_tab()
-    with tabs[9]:
+    with tabs[8]:
         render_thank_you_tab()
-    with tabs[10]:
+    with tabs[9]:
         render_export_tab()
 
 

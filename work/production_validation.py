@@ -32,6 +32,19 @@ from services.billing_service import handle_webhook_event
 from services.export_service import build_optimized_resume_docx, build_optimized_resume_pdf
 from services.resume_builder_service import build_optimized_resume_package
 
+EXPECTED_WORKFLOW_TABS = [
+    "Upload",
+    "Resume Match",
+    "Resume Builder",
+    "Evidence",
+    "Career Coach",
+    "Cover Letter",
+    "Interview Intelligence",
+    "LinkedIn Message",
+    "Thank You Email",
+    "Export",
+]
+
 
 def main() -> None:
     os.environ.setdefault("AFFILIATE_CUSTOMER_SUCCESS_URL", "https://example.com/customer-success")
@@ -69,6 +82,11 @@ def main() -> None:
     print("is_authenticated", at.session_state["is_authenticated"])
     print("nav_pages_present", [item.value for item in at.radio if item.label == "Navigation"])
     print("has_upload_tab", any(tab.label == "Upload" for tab in at.tabs))
+    tab_labels = [tab.label for tab in at.tabs]
+    print("workflow_tabs", tab_labels)
+    print("workflow_tabs_exact_match", tab_labels == EXPECTED_WORKFLOW_TABS)
+    print("legacy_tailored_resume_tab_absent", "Tailored Resume" not in tab_labels)
+    print("legacy_tailored_resume_content_absent", "Tailored resume content" not in "".join(str(item.value) for item in at.markdown))
 
     at.file_uploader[0].set_value((resume_path.name, resume_path.read_bytes(), "text/plain"))
     at.run()
@@ -159,7 +177,7 @@ def main() -> None:
     print("pro_user_bypasses_paywall", at.session_state["app_page"] == "Workflow")
     print("dashboard_jobs_analyzed", get_dashboard_metrics(email)["jobs_analyzed"])
 
-    next(item for item in at.radio if item.label == "Navigation").set_value("Analysis History")
+    at.session_state["app_page"] = "Analysis History"
     at.run()
     reopen_buttons = [button for button in at.button if button.label == "Reopen Analysis"]
     if reopen_buttons:
@@ -173,7 +191,11 @@ def main() -> None:
         bool(_exact_keyword_matches(reopened_analysis) or _semantic_skill_matches(reopened_analysis)),
     )
 
-    next(item for item in at.radio if item.label == "Navigation").set_value("Subscription")
+    at = AppTest.from_file("app.py")
+    at.session_state["is_authenticated"] = True
+    at.session_state["user_email"] = email
+    at.session_state["current_view"] = "app"
+    at.session_state["app_page"] = "Subscription"
     at.run()
     print("subscription_page_present", at.session_state["app_page"] == "Subscription")
     profile = get_user_profile(email) or {}
@@ -234,7 +256,7 @@ def main() -> None:
         "G&A category management, and systems/process improvement."
     )
     procurement_analysis = compare_resume_to_job(resume_text, procurement_text)
-    builder = build_optimized_resume_package(resume_text, job_text, analysis, {"professional_summary": "", "tailored_resume_bullets": []})
+    builder = build_optimized_resume_package(resume_text, job_text, analysis, {})
     docx_bytes = build_optimized_resume_docx(builder["optimized_resume_text"])
     pdf_bytes = build_optimized_resume_pdf(builder["optimized_resume_text"])
 

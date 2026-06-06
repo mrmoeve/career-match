@@ -15,7 +15,7 @@ The app:
 - fetches a job description from a job posting URL with graceful manual fallback
 - compares resume content against the job description
 - scores direct fit, transferable fit, overall fit, and interview potential
-- generates tailored resume content, interview preparation, outreach content, and career guidance
+- generates resume match analysis, resume optimization, interview preparation, outreach content, and career guidance
 - preserves evidence-backed recommendations with Trust Score and Evidence validation
 - exports results to DOCX and PDF
 - stores local application history in SQLite

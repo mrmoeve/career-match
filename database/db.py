@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import json
 import logging
 import os
 import secrets
@@ -20,6 +21,11 @@ except Exception:  # pragma: no cover - optional until installed
 DB_PATH = Path(__file__).resolve().parent / "applications.db"
 LOGGER_NAME = "career_match"
 _ENGINE_LOGGED = False
+LEGACY_TAILORED_RESUME_KEYS = {
+    "tailored_resume",
+    "tailored_resume_bullets",
+    "Tailored_Resume",
+}
 
 
 @dataclass
@@ -186,6 +192,51 @@ def get_database_diagnostics() -> dict:
     else:
         diagnostics["target"] = str(DB_PATH)
     return diagnostics
+
+
+def sanitize_generated_payload(generated: dict | None) -> dict:
+    cleaned = dict(generated or {})
+    for key in LEGACY_TAILORED_RESUME_KEYS:
+        cleaned.pop(key, None)
+    for key in ("workflow_tabs", "result_tabs", "tab_order"):
+        value = cleaned.get(key)
+        if isinstance(value, list):
+            cleaned[key] = [item for item in value if str(item).strip() != "Tailored Resume"]
+    return cleaned
+
+
+def sanitize_application_payload(payload: dict | None) -> dict:
+    cleaned = dict(payload or {})
+    cleaned["generated"] = sanitize_generated_payload(cleaned.get("generated"))
+    for key in ("workflow_tabs", "result_tabs", "tab_order"):
+        value = cleaned.get(key)
+        if isinstance(value, list):
+            cleaned[key] = [item for item in value if str(item).strip() != "Tailored Resume"]
+    return cleaned
+
+
+def _migrate_remove_tailored_resume_payloads(conn) -> None:
+    rows = _fetchall_dicts(
+        conn,
+        "SELECT id, payload_json FROM applications WHERE payload_json <> ''",
+    )
+    updated = 0
+    for row in rows:
+        payload_json = row.get("payload_json", "")
+        try:
+            payload = json.loads(payload_json)
+        except Exception:
+            continue
+        cleaned = sanitize_application_payload(payload)
+        if cleaned != payload:
+            _execute(
+                conn,
+                "UPDATE applications SET payload_json = ? WHERE id = ?",
+                (json.dumps(cleaned, ensure_ascii=True), int(row.get("id", 0))),
+            )
+            updated += 1
+    if updated:
+        _logger().info("Removed legacy Tailored Resume payloads from %s application records", updated)
 
 
 def _connect():
@@ -749,6 +800,7 @@ def init_db() -> None:
         _add_column_if_missing(conn, "applications", "payment_type_used", "payment_type_used TEXT NOT NULL DEFAULT 'free'")
         _add_column_if_missing(conn, "applications", "is_admin_test", "is_admin_test INTEGER NOT NULL DEFAULT 0")
         _run_admin_migration_once(conn, ["mrmoeve@gmail.com", "talisa.salvador@gmail.com"])
+        _migrate_remove_tailored_resume_payloads(conn)
         conn.commit()
     finally:
         conn.close()

@@ -26,7 +26,6 @@ Resume-vs-job analysis:
 Return a JSON object with this exact shape:
 {{
   "professional_summary": "string",
-  "tailored_resume_bullets": ["string", "string", "string", "string", "string"],
   "cover_letter": "string",
   "linkedin_recruiter_message": "string",
   "interview_questions_and_answers": [
