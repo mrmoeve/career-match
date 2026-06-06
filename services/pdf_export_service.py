@@ -67,21 +67,36 @@ def _common_metadata(package: dict, tab_name: str) -> list[tuple[str, str]]:
     ]
 
 
-def _score_rows(package: dict) -> list[list[str]]:
+def _score_rows(package: dict, tab_name: str = "") -> list[list[str]]:
     analysis = package.get("analysis", {}) or {}
     builder = package.get("generated", {}).get("resume_builder", {}) or {}
     job_fit = analysis.get("job_fit", {}) or {}
+    keyword_before = analysis.get("keyword_coverage_score", analysis.get("ats_score", 0))
+    keyword_after = builder.get("optimized_ats_score", keyword_before)
     rows = [["Metric", "Value"]]
-    for label, value in [
+    metrics = [
         ("Fit Score", f"{analysis.get('overall_fit_score', 0)}/100"),
         ("Direct Match", f"{analysis.get('direct_match_score', 0)}/100"),
         ("Transferable Match", f"{analysis.get('transferable_match_score', 0)}/100"),
         ("Interview Potential", f"{analysis.get('overall_interview_potential', 0)}/100"),
         ("Job Fit Recommendation", job_fit.get("recommendation", "")),
-        ("ATS Before", f"{builder.get('original_ats_score', analysis.get('ats_score', 0))}/100"),
-        ("ATS After", f"{builder.get('optimized_ats_score', analysis.get('ats_score', 0))}/100"),
         ("Trust Score", f"{builder.get('trust_score', 0)}%"),
-    ]:
+    ]
+    if tab_name == "Resume Match":
+        metrics.extend(
+            [
+                ("Keyword Coverage Before", f"{keyword_before}/100"),
+                ("Keyword Coverage After", f"{keyword_after}/100"),
+            ]
+        )
+    else:
+        metrics.extend(
+            [
+                ("ATS Before", f"{builder.get('original_ats_score', analysis.get('ats_score', 0))}/100"),
+                ("ATS After", f"{builder.get('optimized_ats_score', analysis.get('ats_score', 0))}/100"),
+            ]
+        )
+    for label, value in metrics:
         if value:
             rows.append([label, str(value)])
     return rows
@@ -144,12 +159,33 @@ def _warnings(package: dict) -> list[str]:
 
 def _resume_match_sections(package: dict) -> list[dict]:
     analysis = package.get("analysis", {}) or {}
+    builder = package.get("generated", {}).get("resume_builder", {}) or {}
+    fit_score = int(analysis.get("overall_fit_score", 0) or 0)
+    direct_score = int(analysis.get("direct_match_score", 0) or 0)
+    keyword_after = int(builder.get("optimized_ats_score", analysis.get("keyword_coverage_score", 0)) or 0)
+    warning = analysis.get("score_consistency", {}).get("warning", "")
+    if keyword_after >= fit_score + 12 and direct_score < 60:
+        warning = "Keyword coverage is strong, but overall fit is limited by missing direct experience."
     sections = [
         {"heading": "Top 3 Strengths", "bullets": _top_strengths(package)},
         {"heading": "Top 3 Gaps", "bullets": _top_gaps(package)},
         {"heading": "Recommended Next Actions", "bullets": _next_actions(package)},
         {"heading": "Role-Specific Strengths", "bullets": _bullet_lines(analysis.get("role_specific_strengths", []))},
         {"heading": "Missing Keywords", "bullets": _bullet_lines(analysis.get("missing_keywords", []))},
+        {
+            "heading": "Keyword Coverage Snapshot",
+            "bullets": [
+                f"Keyword Coverage Before: {analysis.get('keyword_coverage_score', analysis.get('ats_score', 0))}/100",
+                f"Keyword Coverage After: {keyword_after}/100",
+            ],
+        },
+        {
+            "heading": "Keyword Coverage Explanation",
+            "bullets": [
+                analysis.get("score_consistency", {}).get("explanation", "Keyword coverage is not the same as overall job fit."),
+                warning,
+            ],
+        },
     ]
     competency_rows = [["Competency", "Direct", "Transferable", "Overall", "Evidence"]]
     for item in analysis.get("competency_scores", []) or []:
@@ -163,11 +199,122 @@ def _resume_match_sections(package: dict) -> list[dict]:
             ]
         )
     sections.append({"heading": "Recruiter Competency Scores", "table": competency_rows})
+
+    confidence_rows = [["Competency", "Direct", "Transferable", "Overall", "Evidence", "Confidence"]]
+    for item in analysis.get("recruiter_confidence_by_competency", []) or []:
+        confidence_rows.append(
+            [
+                item.get("competency", ""),
+                f"{item.get('direct_score', 0)}/100",
+                f"{item.get('transferable_score', 0)}/100",
+                f"{item.get('overall_score', 0)}/100",
+                ", ".join((item.get("evidence", []) or [])[:3]) or "None",
+                item.get("confidence_level", "Low"),
+            ]
+        )
+    sections.append({"heading": "Recruiter Confidence", "table": confidence_rows})
+
+    explanation_lines = []
+    for item in analysis.get("score_explanation", []) or []:
+        explanation_lines.append(
+            f"{item.get('category', '')}: {item.get('weight', 0)}% weight | "
+            f"raw {item.get('raw_score', 0)}/100 | contribution {item.get('contribution', 0)}"
+        )
+    sections.append({"heading": "Score Explanation", "bullets": explanation_lines})
+
+    score_rows = [["Competency", "Weight", "Raw", "Contribution", "Evidence", "Missing Requirement"]]
+    for item in analysis.get("score_breakdown", []) or []:
+        score_rows.append(
+            [
+                item.get("competency", ""),
+                str(item.get("weight", 0)),
+                f"{item.get('raw_score', 0)}/100",
+                f"{item.get('contribution', 0)}/100",
+                item.get("confidence_level", item.get("evidence_level", "Unsupported")),
+                item.get("missing_requirement", "") or "None",
+            ]
+        )
+    sections.append({"heading": "Why This Score?", "table": score_rows})
+
+    priority_lines = []
+    for priority in ["Critical", "Important", "Nice-to-have"]:
+        items = analysis.get("missing_keywords_by_priority", {}).get(priority, []) or []
+        if not items:
+            continue
+        priority_lines.append(f"{priority}:")
+        for item in items:
+            priority_lines.append(
+                f"{item.get('term', '')} | {item.get('competency', '')} | "
+                f"JD keyword: {item.get('extracted_keyword', '')} | Confidence {item.get('confidence_score', 0)} | "
+                f"Sentence: {item.get('job_description_sentence', '')}"
+            )
+    sections.append({"heading": "Missing Keywords by Priority", "bullets": priority_lines})
+
+    interview_lines = []
+    for item in analysis.get("reasons_to_interview", []) or []:
+        evidence = " | ".join((item.get("supporting_resume_evidence", []) or [])[:2]) or "No resume evidence listed"
+        interview_lines.append(
+            f"{item.get('reason_title', '')} | {item.get('strength_level', '')} | "
+            f"Job requirement: {item.get('relevant_job_requirement', '')} | Evidence: {evidence}"
+        )
+    sections.append({"heading": "Why Recruiters Will Interview", "bullets": interview_lines})
+
+    reject_lines = []
+    for item in analysis.get("reasons_to_reject", []) or []:
+        reject_lines.append(
+            f"{item.get('gap_name', '')} | {item.get('impact_level', '')} impact | "
+            f"Missing requirement: {item.get('missing_job_requirement', '')} | "
+            f"Fixability: {item.get('fixability', '')} | Why: {item.get('why_it_matters', '')}"
+        )
+    sections.append({"heading": "Why Recruiters May Pass", "bullets": reject_lines})
+
+    roi_lines = []
+    for item in analysis.get("resume_roi_fixes", []) or []:
+        evidence = " | ".join((item.get("supporting_resume_evidence", []) or [])[:2]) or "No resume evidence listed"
+        roi_lines.append(
+            f"{item.get('gap_or_keyword', '')} | {item.get('expected_impact', 'Medium')} impact | +{item.get('estimated_score_impact', 0)} potential points | "
+            f"{'Supported' if item.get('safely_supported') else 'Not safely supported'} | "
+            f"Why: {item.get('why_it_matters', '')} | Action: {item.get('recommended_action', '')} | Evidence: {evidence}"
+        )
+    sections.append({"heading": "Highest ROI Fixes", "bullets": roi_lines})
+
+    level_alignment = analysis.get("compensation_level_alignment", {}) or {}
+    sections.append(
+        {
+            "heading": "Compensation / Level Alignment",
+            "bullets": [
+                f"{level_alignment.get('label', 'Moderate Alignment')} ({level_alignment.get('alignment_score', 0)}/100)"
+            ] + _bullet_lines(level_alignment.get("reasoning", [])),
+        }
+    )
+
+    comparison_lines = []
+    for item in analysis.get("compared_with_typical_applicants", []) or []:
+        comparison_lines.append(
+            f"{item.get('competency', '')}: {item.get('relative_strength', 'Unknown')} | "
+            f"{item.get('confidence_level', 'Low')} confidence | Evidence: {', '.join((item.get('evidence', []) or [])[:3]) or 'None'}"
+        )
+    sections.append({"heading": "Compared To Successful Candidates", "bullets": comparison_lines})
+
+    recruiter_summary = analysis.get("recruiter_style_summary", {}) or {}
+    sections.append(
+        {
+            "heading": "Recruiter-Style Summary",
+            "bullets": [
+                f"Best case recruiter read: {recruiter_summary.get('best_case_recruiter_read', 'Not available')}",
+                f"Worst case recruiter read: {recruiter_summary.get('worst_case_recruiter_read', 'Not available')}",
+                f"Most important fix before applying: {recruiter_summary.get('most_important_fix_before_applying', 'Not available')}",
+            ],
+        }
+    )
+
     evidence_lines = []
     for item in analysis.get("match_reasoning", []) or []:
         evidence = item.get("resume_evidence_lines", []) or []
         if evidence:
-            evidence_lines.append(f"{item.get('competency', 'Competency')}: {' | '.join(evidence[:2])}")
+            evidence_lines.append(
+                f"{item.get('competency', 'Competency')} | {item.get('confidence_level', item.get('evidence_level', 'Unsupported'))}: {' | '.join(evidence[:2])}"
+            )
     sections.append({"heading": "Exact Resume Evidence", "bullets": evidence_lines})
     return sections
 
@@ -419,7 +566,7 @@ def build_pdf_payload(tab_name: str, package: dict) -> dict:
         "title": f"Career Match — {tab_name}",
         "file_name": file_name,
         "metadata_rows": _common_metadata(package, tab_name),
-        "score_rows": _score_rows(package),
+        "score_rows": _score_rows(package, tab_name),
         "sections": sections,
         "text_dump": text_dump,
         "package": package,

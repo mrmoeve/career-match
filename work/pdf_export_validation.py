@@ -127,6 +127,7 @@ def main() -> None:
     non_empty_checks = {}
     role_profile_checks = {}
     contamination_checks = {}
+    resume_match_section_checks = {}
 
     for tab in TAB_NAMES:
         pdf_bytes, file_name, payload = build_tab_pdf(tab, package)
@@ -138,18 +139,38 @@ def main() -> None:
             term not in lower_dump
             for term in ["customer success", "account management", "training & adoption"]
         )
+        if tab == "Resume Match":
+            text_dump = payload.get("text_dump", "")
+            resume_match_section_checks = {
+                "why_this_score": "Why This Score?" in text_dump,
+                "recruiter_confidence": "Recruiter Confidence" in text_dump,
+                "missing_keywords_by_priority": "Missing Keywords by Priority" in text_dump,
+                "reasons_to_interview": "Why Recruiters Will Interview" in text_dump,
+                "reasons_to_reject": "Why Recruiters May Pass" in text_dump,
+                "compensation_level_alignment": "Compensation / Level Alignment" in text_dump,
+                "compared_with_typical_applicants": "Compared To Successful Candidates" in text_dump,
+                "resume_roi": "Highest ROI Fixes" in text_dump,
+                "recruiter_summary": "Recruiter-Style Summary" in text_dump,
+                "keyword_coverage_after": "Keyword Coverage After" in text_dump,
+            }
 
     contradiction_free = all(
         (item.get("support_level") != "Weak / Unsupported" or item.get("ats_gain", 0) == 0)
         and (item.get("ats_gain", 0) == 0 or item.get("support_level") in {"Explicit", "Transferable"})
         for item in builder.get("term_validation_report", [])
     )
+    unsupported_not_direct = all(
+        row.get("evidence_level") != "Unsupported" or row.get("direct_score", 0) == 0
+        for row in analysis.get("score_breakdown", [])
+    )
 
     print("tab_pdf_buttons", tab_button_checks)
     print("pdf_non_empty", non_empty_checks)
     print("pdf_role_profile_present", role_profile_checks)
     print("pdf_procurement_contamination_free", contamination_checks)
+    print("resume_match_pdf_sections", resume_match_section_checks)
     print("unsupported_terms_not_in_ats_gain", contradiction_free)
+    print("unsupported_terms_not_counted_as_direct_evidence", unsupported_not_direct)
     print("sample_pdf_filenames", sample_filenames[:5])
 
     overall_pass = (
@@ -158,6 +179,8 @@ def main() -> None:
         and all(role_profile_checks.values())
         and all(contamination_checks.values())
         and contradiction_free
+        and all(resume_match_section_checks.values())
+        and unsupported_not_direct
     )
     print("pdf_export_validation_passed", overall_pass)
     if not overall_pass:

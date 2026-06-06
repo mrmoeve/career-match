@@ -88,6 +88,8 @@ dashboard reporting, executive reporting, data analysis, issue resolution, and p
 Preferred technologies include Excel, PowerPoint, Salesforce, and CRM workflows.
 """
 
+SUPPORT_ACCOUNT_MANAGER_JOB_TEXT = Path("work/test_assets/support_account_manager_job.txt").read_text()
+
 PROCUREMENT_JOB_TEXT = """Senior Procurement Analyst
 Datadog
 New York, NY, United States
@@ -96,6 +98,24 @@ Datadog is hiring a Senior Procurement Analyst to support strategic sourcing, pr
 vendor negotiation, spend analysis, renewal management, forecast modeling, stakeholder partnership,
 AI and automation in procurement, G&A category management, and systems/process improvement.
 The role partners across finance, legal, procurement, and business teams to improve sourcing decisions and operating leverage.
+"""
+
+APPLICATION_SUPPORT_JOB_TEXT = """Application Support Specialist
+BlueRiver Systems
+New York, NY, United States
+
+BlueRiver Systems is hiring an Application Support Specialist to troubleshoot incidents, support business users,
+manage ticket queues, coordinate with technology teams, document recurring issues, and improve support workflows.
+Preferred experience includes SQL, stakeholder communication, root-cause analysis, and knowledge transfer.
+"""
+
+PROJECT_MANAGER_JOB_TEXT = """Project Manager
+Northshore Development
+New York, NY, United States
+
+Northshore Development is hiring a Project Manager to coordinate schedules, budgets, stakeholder communication,
+vendor management, risk tracking, and cross-functional delivery across multiple workstreams.
+Preferred experience includes project plans, reporting, construction or operations coordination, and budget ownership.
 """
 
 CYERA_JOB_TEXT = """Procurement Specialist
@@ -154,10 +174,27 @@ def main() -> None:
     print("transferable_match_score", analysis["transferable_match_score"])
     print("overall_fit_score", analysis["overall_fit_score"])
     print("interview_potential_score", analysis["overall_interview_potential"])
+    print("score_breakdown_present", bool(analysis.get("score_breakdown")))
+    print("reasons_to_interview_present", bool(analysis.get("reasons_to_interview")))
+    print("reasons_to_reject_present", bool(analysis.get("reasons_to_reject")))
+    print("resume_roi_fixes_present", bool(analysis.get("resume_roi_fixes")))
+    print("recruiter_style_summary_present", bool(analysis.get("recruiter_style_summary")))
+    print(
+        "unsupported_not_counted_as_direct",
+        all(
+            row.get("evidence_level") != "Unsupported" or row.get("direct_score", 0) == 0
+            for row in analysis.get("score_breakdown", [])
+        ),
+    )
     print("ats_before", analysis["ats_score"])
     print("ats_after", builder["optimized_ats_score"])
     print("keywords_added", builder["keywords_added"])
     print("bridge_guidance", builder.get("bridge_the_gap_guidance", []))
+    print("score_consistency_warning", analysis.get("score_consistency", {}).get("warning", ""))
+    print("missing_keywords_by_priority_present", bool(analysis.get("missing_keywords_by_priority")))
+    print("recruiter_confidence_present", bool(analysis.get("recruiter_confidence_by_competency")))
+    print("level_alignment_present", bool(analysis.get("compensation_level_alignment")))
+    print("typical_applicant_comparison_present", bool(analysis.get("compared_with_typical_applicants")))
 
     procurement_analysis = compare_resume_to_job(resume_text, PROCUREMENT_JOB_TEXT)
     procurement_competencies = [item["competency"] for item in procurement_analysis.get("competency_scores", [])]
@@ -186,7 +223,40 @@ def main() -> None:
     print("procurement_account_management_recommendations", sum(1 for item in procurement_categories if item == "client_relationship_growth"))
     print("procurement_cross_role_contamination_passed", not any(item in {"customer_success_foundations", "client_relationship_growth"} for item in procurement_categories))
 
+    support_analysis = compare_resume_to_job(resume_text, SUPPORT_ACCOUNT_MANAGER_JOB_TEXT)
+    print("support_role_family", support_analysis.get("role_family"))
+    print("support_keyword_coverage_score", support_analysis.get("keyword_coverage_score"))
+    print("support_score_consistency_warning", support_analysis.get("score_consistency", {}).get("warning", ""))
+    print("support_missing_keywords_by_priority", {key: [item.get("term", "") for item in value] for key, value in (support_analysis.get("missing_keywords_by_priority", {}) or {}).items()})
+    print("support_recruiter_confidence_rows", len(support_analysis.get("recruiter_confidence_by_competency", [])))
+    print("support_level_alignment", support_analysis.get("compensation_level_alignment", {}).get("label"))
+    print("support_typical_applicant_comparison", [item.get("relative_strength") for item in support_analysis.get("compared_with_typical_applicants", [])[:3]])
+    print(
+        "support_unsupported_not_direct",
+        all(
+            row.get("evidence_level") != "Unsupported" or row.get("direct_score", 0) == 0
+            for row in support_analysis.get("score_breakdown", [])
+        ),
+    )
+    support_summaries = ["|".join(item.get("evidence_summary", [])) for item in support_analysis.get("recruiter_confidence_by_competency", [])]
+    print("support_evidence_summaries_present", any(summary for summary in support_summaries))
+
+    app_support_analysis = compare_resume_to_job(resume_text, APPLICATION_SUPPORT_JOB_TEXT)
+    print("application_support_role_family", app_support_analysis.get("role_family"))
+    print("application_support_confidence_rows", len(app_support_analysis.get("recruiter_confidence_by_competency", [])))
+    print(
+        "application_support_no_procurement_contamination",
+        not any(item.get("competency") == "Strategic Sourcing" for item in app_support_analysis.get("competency_scores", [])),
+    )
+
     talisa_resume = Path("work/test_assets/talisa_procurement_resume.txt").read_text()
+    project_manager_analysis = compare_resume_to_job(talisa_resume, PROJECT_MANAGER_JOB_TEXT)
+    print("project_manager_role_family", project_manager_analysis.get("role_family"))
+    print("project_manager_confidence_rows", len(project_manager_analysis.get("recruiter_confidence_by_competency", [])))
+    print(
+        "project_manager_no_customer_success_contamination",
+        not any(item.get("competency") == "Customer Success" for item in project_manager_analysis.get("competency_scores", [])),
+    )
     cyera_analysis = compare_resume_to_job(talisa_resume, CYERA_JOB_TEXT)
     cyera_builder = build_optimized_resume_package(talisa_resume, CYERA_JOB_TEXT, cyera_analysis, {"professional_summary": "", "tailored_resume_bullets": []})
     print("cyera_ats_before", cyera_analysis.get("ats_score"))

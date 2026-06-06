@@ -267,6 +267,289 @@ def _find_resume_evidence_lines(resume_text: str, terms: list[str], limit: int =
     return inferred
 
 
+def _evidence_level_from_scores(direct_score: int, transferable_score: int, matched_terms: list[str]) -> str:
+    if direct_score >= 75 and matched_terms:
+        return "Strong Evidence"
+    if direct_score >= 45 and matched_terms:
+        return "Moderate Evidence"
+    if transferable_score >= 45 and matched_terms:
+        return "Transferable Evidence"
+    if matched_terms:
+        return "Weak Evidence"
+    return "Unsupported"
+
+
+def _confidence_from_evidence_level(level: str) -> int:
+    return {
+        "Strong Evidence": 92,
+        "Moderate Evidence": 78,
+        "Transferable Evidence": 64,
+        "Weak Evidence": 42,
+        "Unsupported": 18,
+    }.get(level, 25)
+
+
+def _impact_level(score: int) -> str:
+    if score >= 75:
+        return "High"
+    if score >= 45:
+        return "Medium"
+    return "Low"
+
+
+def _summarize_evidence_lines(lines: list[str], matched_terms: list[str] | None = None) -> list[str]:
+    seen: set[str] = set()
+    summaries: list[str] = []
+    for line in lines or []:
+        lowered = line.lower()
+        summary = ""
+        if any(term in lowered for term in ["vendor", "supplier", "negotiat", "contract"]):
+            summary = "Vendor or supplier coordination and negotiation"
+        elif any(term in lowered for term in ["stakeholder", "leadership", "client-facing", "client facing", "business leaders"]):
+            summary = "Stakeholder-facing coordination and partnership"
+        elif any(term in lowered for term in ["budget", "forecast", "analysis", "dashboard", "reporting", "metrics", "tracking"]):
+            summary = "Data analysis, reporting, or tracking ownership"
+        elif any(term in lowered for term in ["training", "onboarding", "support", "issue", "resolve"]):
+            summary = "Training, support, or issue-resolution experience"
+        elif any(term in lowered for term in ["process", "system", "workflow", "automation"]):
+            summary = "Process, systems, or workflow improvement"
+        if not summary and matched_terms:
+            summary = ", ".join(matched_terms[:3])
+        if summary and summary.lower() not in seen:
+            summaries.append(summary)
+            seen.add(summary.lower())
+        if len(summaries) >= 3:
+            break
+    if not summaries and matched_terms:
+        return matched_terms[:3]
+    return summaries
+
+
+def _confidence_label(item: dict) -> str:
+    evidence_level = item.get("evidence_level", "Unsupported")
+    direct_score = int(item.get("direct_score", 0) or 0)
+    transferable_score = int(item.get("transferable_score", 0) or 0)
+    if evidence_level in {"Strong Evidence", "Moderate Evidence"} and direct_score >= 45:
+        return "High"
+    if evidence_level == "Transferable Evidence" or transferable_score >= 45:
+        return "Medium"
+    return "Low"
+
+
+def _job_description_sentences(job_description_text: str) -> list[str]:
+    raw_parts = re.split(r"[\n\r]+|(?<=[.!?])\s+", job_description_text or "")
+    sentences: list[str] = []
+    for part in raw_parts:
+        cleaned = re.sub(r"\s+", " ", part).strip(" -\t")
+        if cleaned and len(cleaned) >= 18:
+            sentences.append(cleaned)
+    return sentences
+
+
+def _job_requirement_evidence(job_description_text: str, term: str, fallback_terms: list[str] | None = None) -> dict:
+    search_terms = [term] + [item for item in (fallback_terms or []) if item and item.lower() != term.lower()]
+    sentences = _job_description_sentences(job_description_text)
+    best_sentence = ""
+    best_keyword = term
+    best_score = 0
+    for sentence in sentences:
+        lowered = sentence.lower()
+        for candidate in search_terms:
+            candidate_lower = candidate.lower()
+            if candidate_lower and candidate_lower in lowered:
+                score = 70
+                if re.search(r"\b(required|must have|at least|expertise|demonstrated|own|lead|hands-on)\b", lowered):
+                    score += 20
+                elif re.search(r"\b(preferred|nice to have|ideal|plus|strong)\b", lowered):
+                    score += 10
+                if candidate_lower == term.lower():
+                    score += 5
+                if score > best_score:
+                    best_score = min(99, score)
+                    best_sentence = sentence
+                    best_keyword = candidate
+    if not best_sentence and sentences:
+        for sentence in sentences:
+            lowered = sentence.lower()
+            if any(token in lowered for token in term.lower().split() if len(token) > 3):
+                best_sentence = sentence
+                best_keyword = term
+                best_score = 55
+                break
+    return {
+        "job_description_sentence": best_sentence,
+        "extracted_keyword": best_keyword,
+        "confidence_score": best_score,
+    }
+
+
+def _priority_for_missing_term(
+    term: str,
+    competency_weight: int,
+    job_fit: dict,
+    jd_evidence: dict,
+) -> str:
+    lowered = term.lower()
+    required = {str(item).lower() for item in job_fit.get("required_skills", []) + job_fit.get("required_certifications", [])}
+    preferred = {str(item).lower() for item in job_fit.get("preferred_skills", [])}
+    sentence = (jd_evidence.get("job_description_sentence", "") or "").lower()
+    if lowered in required or re.search(r"\b(required|must have|at least|expertise|demonstrated)\b", sentence):
+        return "Critical"
+    if lowered in preferred or competency_weight >= 14 or re.search(r"\b(preferred|plus|ideal|strong)\b", sentence):
+        return "Important"
+    return "Nice-to-have"
+
+
+def _build_missing_keywords_by_priority(
+    job_description_text: str,
+    competency_scores: list[dict],
+    job_fit: dict,
+) -> dict[str, list[dict]]:
+    grouped: dict[str, list[dict]] = {"Critical": [], "Important": [], "Nice-to-have": []}
+    seen: set[str] = set()
+    for item in competency_scores:
+        competency = item.get("competency", "")
+        for term in item.get("missing_terms", []) or []:
+            key = term.lower()
+            if key in seen:
+                continue
+            jd_evidence = _job_requirement_evidence(job_description_text, term, item.get("job_expectations", []))
+            priority = _priority_for_missing_term(term, int(item.get("weight", 0) or 0), job_fit, jd_evidence)
+            grouped[priority].append(
+                {
+                    "term": term,
+                    "competency": competency,
+                    "priority": priority,
+                    "job_description_sentence": jd_evidence.get("job_description_sentence", ""),
+                    "extracted_keyword": jd_evidence.get("extracted_keyword", term),
+                    "confidence_score": int(jd_evidence.get("confidence_score", 0) or 0),
+                }
+            )
+            seen.add(key)
+    for priority in grouped:
+        grouped[priority].sort(key=lambda payload: (-payload.get("confidence_score", 0), payload.get("term", "")))
+    return grouped
+
+
+def _build_recruiter_confidence_by_competency(competency_scores: list[dict]) -> list[dict]:
+    rows: list[dict] = []
+    for item in competency_scores:
+        rows.append(
+            {
+                "competency": item.get("competency", ""),
+                "direct_score": item.get("direct_score", 0),
+                "transferable_score": item.get("transferable_score", 0),
+                "overall_score": item.get("score", 0),
+                "evidence": item.get("matched", []),
+                "evidence_level": item.get("evidence_level", "Unsupported"),
+                "confidence_level": _confidence_label(item),
+                "evidence_summary": _summarize_evidence_lines(item.get("resume_evidence_lines", []), item.get("matched", [])),
+                "matched_resume_evidence": item.get("resume_evidence_lines", []),
+            }
+        )
+    return rows
+
+
+def _build_compensation_level_alignment(
+    job_title: str,
+    job_fit: dict,
+    resume_years: int,
+    direct_match_score: int,
+    transferable_match_score: int,
+    title_overlap: list[str],
+    industry_overlap: list[str],
+) -> dict:
+    required_years = int(job_fit.get("years_experience_required", 0) or 0)
+    title_score = 18 if title_overlap else 9
+    industry_score = 15 if industry_overlap else 8
+    experience_score = 25
+    if required_years:
+        if resume_years >= required_years + 2:
+            experience_score = 25
+        elif resume_years >= required_years:
+            experience_score = 22
+        elif resume_years >= max(required_years - 1, 1):
+            experience_score = 16
+        else:
+            experience_score = 8
+    alignment_score = round(
+        experience_score * 0.35
+        + title_score * 0.20
+        + industry_score * 0.15
+        + direct_match_score * 0.15
+        + transferable_match_score * 0.15
+    )
+    if alignment_score >= 72:
+        label = "Strong Alignment"
+    elif alignment_score >= 58:
+        label = "Moderate Alignment"
+    elif alignment_score >= 42:
+        label = "Stretch"
+    else:
+        label = "Overreach"
+    reasoning = []
+    if required_years:
+        reasoning.append(f"Resume suggests about {resume_years} years versus roughly {required_years} years requested.")
+    else:
+        reasoning.append(f"Resume suggests about {resume_years} years, and the role does not clearly state a years requirement.")
+    reasoning.append("Title overlap is " + ("present." if title_overlap else "limited."))
+    reasoning.append("Industry overlap is " + ("present." if industry_overlap else "limited."))
+    reasoning.append(f"Direct competency match is {direct_match_score}/100 and transferable match is {transferable_match_score}/100.")
+    return {
+        "label": label,
+        "alignment_score": alignment_score,
+        "reasoning": reasoning,
+        "job_title": job_title,
+    }
+
+
+def _build_typical_applicant_comparison(competency_scores: list[dict]) -> list[dict]:
+    comparisons: list[dict] = []
+    for item in competency_scores:
+        overall = int(item.get("score", 0) or 0)
+        direct = int(item.get("direct_score", 0) or 0)
+        confidence = _confidence_label(item)
+        if confidence == "Low" and overall < 35:
+            relative = "Unknown"
+        elif overall >= 78 or (direct >= 60 and confidence == "High"):
+            relative = "Stronger than typical"
+        elif overall >= 55 or confidence in {"High", "Medium"}:
+            relative = "Competitive"
+        else:
+            relative = "Weaker than typical"
+        comparisons.append(
+            {
+                "competency": item.get("competency", ""),
+                "relative_strength": relative,
+                "confidence_level": confidence,
+                "evidence": item.get("matched", []),
+            }
+        )
+    return comparisons
+
+
+def _build_score_consistency(
+    fit_score: int,
+    interview_potential: int,
+    direct_match_score: int,
+    transferable_match_score: int,
+    keyword_coverage_score: int,
+) -> dict:
+    warnings: list[str] = []
+    if keyword_coverage_score >= fit_score + 12 and direct_match_score < 60:
+        warnings.append("Keyword coverage is strong, but overall fit is limited by missing direct experience.")
+    if interview_potential >= fit_score + 15 and direct_match_score < 45:
+        warnings.append("Interview potential is being supported mainly by transferable strengths rather than direct title alignment.")
+    if direct_match_score < 35 and transferable_match_score >= 65:
+        warnings.append("The resume looks more transferable than directly aligned, so recruiter interest will depend on positioning.")
+    return {
+        "keyword_coverage_score": keyword_coverage_score,
+        "warning": " ".join(warnings),
+        "is_consistent": not warnings,
+        "explanation": "Keyword coverage is not the same as overall job fit.",
+    }
+
+
 def _build_matching_reasoning(
     resume_text: str,
     job_categories: dict[str, list[str]],
@@ -284,6 +567,8 @@ def _build_matching_reasoning(
                 "competency": item["competency"],
                 "matched_terms": matched_terms,
                 "score": item["score"],
+                "evidence_level": item.get("evidence_level", "Unsupported"),
+                "confidence_level": item.get("confidence_level", "Unsupported"),
                 "why_it_matched": (
                     f"The role emphasizes {', '.join(item.get('job_expectations', [])[:3])}, and the resume already shows "
                     f"{', '.join(matched_terms[:3])}."
@@ -311,6 +596,7 @@ def _build_missing_reasoning(
             {
                 "competency": item["competency"],
                 "missing_terms": missing_terms,
+                "evidence_level": item.get("evidence_level", "Unsupported"),
                 "why_it_is_missing": (
                     f"The job calls for {', '.join(missing_terms[:3])}, but those phrases do not appear clearly in the uploaded resume."
                 ),
@@ -347,6 +633,7 @@ def _build_recruiter_quality_intelligence(
                 "competency": competency,
                 "direct_match_score": item.get("direct_score", 0),
                 "transferable_match_score": item.get("transferable_score", 0),
+                "confidence_level": item.get("confidence_level", "Unsupported"),
                 "exact_resume_evidence": evidence_lines,
                 "why_this_evidence_matters": match_item.get("why_it_matched", ""),
                 "where_resume_falls_short": missing_item.get("why_it_is_missing", ""),
@@ -360,6 +647,237 @@ def _build_recruiter_quality_intelligence(
             }
         )
     return intelligence
+
+
+def _build_score_breakdown(competency_scores: list[dict], overall_fit_score: int) -> list[dict]:
+    rows: list[dict] = []
+    total_weight = sum(item.get("weight", 0) for item in competency_scores) or 1
+    for item in competency_scores:
+        contribution = round((item.get("score", 0) * item.get("weight", 0)) / total_weight, 1)
+        rows.append(
+            {
+                "competency": item.get("competency", ""),
+                "weight": item.get("weight", 0),
+                "raw_score": item.get("score", 0),
+                "direct_score": item.get("direct_score", 0),
+                "transferable_score": item.get("transferable_score", 0),
+                "contribution": contribution,
+                "evidence_level": item.get("evidence_level", "Unsupported"),
+                "confidence_level": item.get("confidence_level", "Unsupported"),
+                "confidence_score": item.get("confidence_score", 0),
+                "matched_resume_evidence": item.get("resume_evidence_lines", []),
+                "matched_terms": item.get("matched", []),
+                "missing_requirement": ", ".join(item.get("job_expectations", [])[:3]),
+            }
+        )
+    return rows
+
+
+def _build_reasons_to_interview(competency_scores: list[dict]) -> list[dict]:
+    reasons: list[dict] = []
+    sorted_items = sorted(
+        [item for item in competency_scores if item.get("matched")],
+        key=lambda item: (item.get("score", 0), item.get("direct_score", 0), item.get("transferable_score", 0)),
+        reverse=True,
+    )
+    for item in sorted_items[:5]:
+        if item.get("direct_score", 0) >= 60:
+            strength_level = "Strong"
+        elif item.get("direct_score", 0) >= 35:
+            strength_level = "Moderate"
+        else:
+            strength_level = "Transferable"
+        reasons.append(
+            {
+                "reason_title": item.get("competency", ""),
+                "reason_bullet": (
+                    f"{item.get('competency', '')} is supported by resume-backed evidence such as "
+                    f"{'; '.join((item.get('resume_evidence_lines', []) or [])[:1]) or ', '.join(item.get('matched', [])[:3])}."
+                ),
+                "supporting_resume_evidence": item.get("resume_evidence_lines", []),
+                "relevant_job_requirement": ", ".join(item.get("job_expectations", [])[:3]),
+                "strength_level": strength_level,
+            }
+        )
+    return reasons
+
+
+def _build_reasons_to_reject(competency_scores: list[dict]) -> list[dict]:
+    risks: list[dict] = []
+    sorted_items = sorted(
+        competency_scores,
+        key=lambda item: (100 - item.get("score", 0), 100 - item.get("direct_score", 0), item.get("weight", 0)),
+        reverse=True,
+    )
+    for item in sorted_items[:6]:
+        missing_terms = item.get("missing_terms", []) or item.get("job_expectations", [])
+        if not missing_terms:
+            continue
+        fixable = item.get("evidence_level") in {"Moderate Evidence", "Transferable Evidence", "Weak Evidence"}
+        risks.append(
+            {
+                "gap_name": item.get("competency", ""),
+                "risk_bullet": f"{item.get('competency', '')} is not yet clearly evidenced at the level the job appears to expect.",
+                "why_it_matters": f"This competency affects the recruiter read because the role emphasizes {', '.join(missing_terms[:3])}.",
+                "missing_job_requirement": ", ".join(missing_terms[:3]),
+                "fixability": "Resume wording can help" if fixable else "Truly missing experience",
+                "impact_level": _impact_level(item.get("weight", 0) * max(1, 100 - item.get("score", 0)) // 100),
+            }
+        )
+    return risks
+
+
+def _build_resume_roi_fixes(competency_scores: list[dict]) -> list[dict]:
+    fixes: list[dict] = []
+    for item in sorted(competency_scores, key=lambda row: (row.get("weight", 0), 100 - row.get("score", 0)), reverse=True):
+        missing_terms = item.get("missing_terms", []) or item.get("job_expectations", [])
+        if not missing_terms:
+            continue
+        lead_gap = missing_terms[0]
+        evidence_level = item.get("evidence_level", "Unsupported")
+        if evidence_level in {"Strong Evidence", "Moderate Evidence"}:
+            safely_supported = True
+            action = "Move higher and quantify."
+        elif evidence_level == "Transferable Evidence":
+            safely_supported = True
+            action = "Reframe carefully using adjacent resume evidence."
+        else:
+            safely_supported = False
+            action = "Do not claim unless true."
+        estimated_impact = max(2, round(item.get("weight", 0) * (100 - item.get("score", 0)) / 100))
+        fixes.append(
+            {
+                "gap_or_keyword": lead_gap,
+                "estimated_score_impact": estimated_impact,
+                "expected_impact": _impact_level(estimated_impact * 10),
+                "safely_supported": safely_supported,
+                "recommended_action": action,
+                "why_it_matters": f"The role explicitly leans on {lead_gap.lower()} within {item.get('competency', '').lower()}.",
+                "supporting_resume_evidence": item.get("resume_evidence_lines", []),
+                "evidence_level": evidence_level,
+            }
+        )
+    deduped: list[dict] = []
+    seen: set[str] = set()
+    for item in fixes:
+        key = item["gap_or_keyword"].lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+    return deduped[:8]
+
+
+def _build_recruiter_style_summary(
+    reasons_to_interview: list[dict],
+    reasons_to_reject: list[dict],
+    roi_fixes: list[dict],
+) -> dict:
+    best_case = (
+        f"The candidate shows the clearest upside in {reasons_to_interview[0]['reason_title'].lower()}."
+        if reasons_to_interview else
+        "The candidate has some transferable upside but needs clearer evidence positioning."
+    )
+    worst_case = (
+        f"A recruiter may pause on {reasons_to_reject[0]['gap_name'].lower()} because the job explicitly requires {reasons_to_reject[0]['missing_job_requirement'].lower()}."
+        if reasons_to_reject else
+        "There are no major reject signals beyond normal competitive filtering."
+    )
+    most_important_fix = (
+        f"{roi_fixes[0]['gap_or_keyword']}: {roi_fixes[0]['recommended_action']}"
+        if roi_fixes else
+        "No single high-impact fix identified."
+    )
+    return {
+        "best_case_recruiter_read": best_case,
+        "worst_case_recruiter_read": worst_case,
+        "most_important_fix_before_applying": most_important_fix,
+    }
+
+
+def _build_score_explanation(
+    resume_years: int,
+    job_fit: dict,
+    keyword_coverage_score: int,
+    competency_scores: list[dict],
+    industry_overlap: list[str],
+) -> list[dict]:
+    required_years = int(job_fit.get("years_experience_required", 0) or 0)
+    experience_score = 75 if resume_years else 0
+    if required_years:
+        if resume_years >= required_years:
+            experience_score = 88
+        elif resume_years >= max(required_years - 1, 1):
+            experience_score = 68
+        else:
+            experience_score = 42
+    skills_score = keyword_coverage_score
+    industry_score = 82 if industry_overlap else 45
+    competencies_score = round(sum(item.get("score", 0) for item in competency_scores) / max(len(competency_scores), 1)) if competency_scores else 0
+    evidence_strength_score = round(sum(item.get("confidence_score", 0) for item in competency_scores) / max(len(competency_scores), 1)) if competency_scores else 0
+    config = [
+        ("Experience", 25, experience_score),
+        ("Skills", 30, skills_score),
+        ("Industry", 15, industry_score),
+        ("Competencies", 20, competencies_score),
+        ("Evidence Strength", 10, evidence_strength_score),
+    ]
+    rows: list[dict] = []
+    for label, weight, raw_score in config:
+        rows.append(
+            {
+                "category": label,
+                "weight": weight,
+                "raw_score": raw_score,
+                "contribution": round(raw_score * weight / 100, 1),
+            }
+        )
+    return rows
+
+
+def _benchmark_target_for_competency(item: dict) -> int:
+    weight = int(item.get("weight", 0) or 0)
+    if weight >= 18:
+        return 82
+    if weight >= 16:
+        return 78
+    if weight >= 14:
+        return 74
+    if weight >= 12:
+        return 68
+    return 62
+
+
+def _build_recruiter_benchmarking(competency_scores: list[dict]) -> list[dict]:
+    rows: list[dict] = []
+    for item in competency_scores:
+        target = _benchmark_target_for_competency(item)
+        score = int(item.get("score", 0) or 0)
+        if score >= target + 8:
+            status = "Above"
+        elif score >= target - 8:
+            status = "Competitive"
+        else:
+            status = "Below"
+        rows.append(
+            {
+                "competency": item.get("competency", ""),
+                "you_score": score,
+                "target_score": target,
+                "status": status,
+            }
+        )
+    return rows
+
+
+def _build_roi_projection(fit_score: int, roi_fixes: list[dict]) -> dict:
+    top_fixes = roi_fixes[:3]
+    projected_gain = sum(int(item.get("estimated_score_impact", 0) or 0) for item in top_fixes)
+    return {
+        "current_score": fit_score,
+        "potential_score": min(100, fit_score + projected_gain),
+        "top_fixes": top_fixes,
+    }
 
 
 def _extract_years_of_experience(text: str) -> int:
@@ -741,15 +1259,34 @@ def _build_competency_scores(
         industry_bonus = 6 if industry_overlap and any(token in name.lower() for token in {"risk", "account", "procurement", "spend"}) else 0
         experience_bonus = 8 if resume_years >= 10 else 5 if resume_years >= 5 else 2 if resume_years >= 2 else 0
         overall_score = max(0, min(100, round(direct_score * 0.45 + transferable_score * 0.40 + title_bonus + industry_bonus + experience_bonus)))
+        evidence_level = _evidence_level_from_scores(
+            direct_score,
+            transferable_score,
+            _dedupe_keep_order(exact_direct_hits + adjacent_direct_hits + transfer_hits),
+        )
+        confidence_score = _confidence_from_evidence_level(evidence_level)
+        confidence_level = _confidence_label(
+            {
+                "evidence_level": evidence_level,
+                "direct_score": direct_score,
+                "transferable_score": transferable_score,
+            }
+        )
 
         competency_rows.append(
             {
                 "competency": name,
+                "weight": config["weight"],
                 "direct_score": direct_score,
                 "transferable_score": transferable_score,
                 "score": overall_score,
                 "matched": _dedupe_keep_order(exact_direct_hits + adjacent_direct_hits + transfer_hits),
                 "job_expectations": job_terms,
+                "missing_terms": [term for term in job_terms if term.lower() not in supported_terms],
+                "evidence_level": evidence_level,
+                "confidence_level": confidence_level,
+                "confidence_score": confidence_score,
+                "resume_evidence_lines": [],
             }
         )
 
@@ -903,6 +1440,8 @@ def compare_resume_to_job(resume_text: str, job_description_text: str) -> dict:
     missing_keywords = _flatten_categories(
         {key: [term for term in job_categories.get(key, []) if term not in resume_supported_categories.get(key, [])] for key in job_categories}
     )[:12]
+    unique_job_keywords = _dedupe_keep_order(_flatten_categories(job_categories))
+    keyword_coverage_score = round((len({item.lower() for item in matching_keywords}) / max(len(unique_job_keywords), 1)) * 100)
 
     matching_skills = _dedupe_keep_order(
         [term for term in _flatten_categories(resume_supported_categories) if term in _flatten_categories(job_categories)]
@@ -953,6 +1492,58 @@ def compare_resume_to_job(resume_text: str, job_description_text: str) -> dict:
         resume_supported_categories=resume_supported_categories,
         competency_scores=competency_scores,
     )
+    match_reasoning_by_name = {item["competency"]: item for item in match_reasoning}
+    missing_reasoning_by_name = {item["competency"]: item for item in missing_reasoning}
+    enriched_competency_scores: list[dict] = []
+    for item in competency_scores:
+        competency = item.get("competency", "")
+        enriched_item = dict(item)
+        enriched_item["resume_evidence_lines"] = match_reasoning_by_name.get(competency, {}).get("resume_evidence_lines", [])
+        enriched_item["missing_terms"] = missing_reasoning_by_name.get(competency, {}).get("missing_terms", item.get("missing_terms", []))
+        enriched_competency_scores.append(enriched_item)
+    competency_scores = enriched_competency_scores
+
+    score_breakdown = _build_score_breakdown(competency_scores, overall_fit_score)
+    reasons_to_interview = _build_reasons_to_interview(competency_scores)
+    reasons_to_reject = _build_reasons_to_reject(competency_scores)
+    resume_roi_fixes = _build_resume_roi_fixes(competency_scores)
+    missing_keywords_by_priority = _build_missing_keywords_by_priority(
+        job_description_text=job_description_text,
+        competency_scores=competency_scores,
+        job_fit=job_fit,
+    )
+    recruiter_confidence_by_competency = _build_recruiter_confidence_by_competency(competency_scores)
+    compensation_level_alignment = _build_compensation_level_alignment(
+        job_title=job_title,
+        job_fit=job_fit,
+        resume_years=resume_years,
+        direct_match_score=direct_match_score,
+        transferable_match_score=transferable_match_score,
+        title_overlap=title_overlap,
+        industry_overlap=industry_overlap,
+    )
+    compared_with_typical_applicants = _build_typical_applicant_comparison(competency_scores)
+    recruiter_benchmarking = _build_recruiter_benchmarking(competency_scores)
+    score_explanation = _build_score_explanation(
+        resume_years=resume_years,
+        job_fit=job_fit,
+        keyword_coverage_score=keyword_coverage_score,
+        competency_scores=competency_scores,
+        industry_overlap=industry_overlap,
+    )
+    roi_projection = _build_roi_projection(overall_fit_score, resume_roi_fixes)
+    score_consistency = _build_score_consistency(
+        fit_score=overall_fit_score,
+        interview_potential=interview_potential_score,
+        direct_match_score=direct_match_score,
+        transferable_match_score=transferable_match_score,
+        keyword_coverage_score=keyword_coverage_score,
+    )
+    recruiter_style_summary = _build_recruiter_style_summary(
+        reasons_to_interview,
+        reasons_to_reject,
+        resume_roi_fixes,
+    )
     recruiter_quality_intelligence = _build_recruiter_quality_intelligence(
         resume_text=resume_text,
         competency_scores=competency_scores,
@@ -984,6 +1575,8 @@ def compare_resume_to_job(resume_text: str, job_description_text: str) -> dict:
         "missing_keywords": missing_keywords,
         "gaps": gaps,
         "role_specific_strengths": strengths,
+        "keyword_coverage_score": keyword_coverage_score,
+        "keyword_coverage_label": "Keyword Coverage Before",
         "resume_skills": _dedupe_keep_order(resume_explicit_categories["skills"] + resume_explicit_categories["technologies"]),
         "job_skills": _dedupe_keep_order(job_categories["skills"] + job_categories["technologies"]),
         "matching_keywords": matching_keywords[:15],
@@ -993,8 +1586,21 @@ def compare_resume_to_job(resume_text: str, job_description_text: str) -> dict:
         "job_keyword_categories": job_categories,
         "ats_breakdown": {"competencies": competency_scores},
         "competency_scores": competency_scores,
+        "score_breakdown": score_breakdown,
         "match_reasoning": match_reasoning,
         "missing_reasoning": missing_reasoning,
+        "reasons_to_interview": reasons_to_interview,
+        "reasons_to_reject": reasons_to_reject,
+        "resume_roi_fixes": resume_roi_fixes,
+        "missing_keywords_by_priority": missing_keywords_by_priority,
+        "recruiter_confidence_by_competency": recruiter_confidence_by_competency,
+        "compensation_level_alignment": compensation_level_alignment,
+        "compared_with_typical_applicants": compared_with_typical_applicants,
+        "recruiter_benchmarking": recruiter_benchmarking,
+        "score_explanation": score_explanation,
+        "roi_projection": roi_projection,
+        "score_consistency": score_consistency,
+        "recruiter_style_summary": recruiter_style_summary,
         "recruiter_quality_intelligence": recruiter_quality_intelligence,
         "years_of_experience": resume_years,
         "role_gap_analysis": role_gap_analysis,

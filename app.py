@@ -13,6 +13,7 @@ from database.db import (
     AnalysisFeedback,
     ContactSubmission,
     PageViewRecord,
+    PdfDownloadRecord,
     admin_metrics,
     authenticate_user,
     consume_password_reset_token,
@@ -36,11 +37,13 @@ from database.db import (
     list_feedback,
     list_saved_resumes,
     mark_saved_resume_used,
+    open_beta_enabled,
     rename_saved_resume,
     save_application,
     save_analysis_feedback,
     save_affiliate_click,
     save_contact_submission,
+    save_pdf_download,
     save_page_view,
     save_resume_stub,
     set_user_admin,
@@ -77,6 +80,7 @@ from services.text_extractor import extract_text_from_upload
 
 APP_VERSION = "v0.4.0-quality"
 APP_NAME = "Career Match"
+OPEN_BETA_BANNER = "Career Match is currently free during beta. We welcome feedback."
 BUILD_TIMESTAMP = datetime.fromtimestamp(Path(__file__).stat().st_mtime).isoformat(sep=" ", timespec="seconds")
 SEO_VIEWS = {"ats-checker", "resume-builder", "interview-prep", "cover-letter-generator", "linkedin-message-generator"}
 VALID_VIEWS = {"home", "auth", "app", "contact", "privacy", "terms", "pro", "admin", *SEO_VIEWS}
@@ -636,6 +640,8 @@ def _assessment_access() -> dict:
 
 
 def _subscription_is_active() -> bool:
+    if open_beta_enabled():
+        return True
     return _assessment_access().get("is_pro", False)
 
 
@@ -691,6 +697,8 @@ def _email_delivery_configured() -> bool:
 
 
 def _rate_limit_allows_analysis() -> bool:
+    if open_beta_enabled():
+        return True
     timestamps = st.session_state.get("analysis_rate_timestamps", [])
     now = datetime.now()
     fresh = [item for item in timestamps if (now - item).total_seconds() < 60]
@@ -718,6 +726,8 @@ def _record_successful_assessment() -> None:
         return
     if _admin_test_mode_enabled():
         return
+    if open_beta_enabled():
+        return
     access = _assessment_access()
     email = st.session_state.get("user_email", "")
     if access.get("is_pro"):
@@ -731,6 +741,8 @@ def _record_successful_assessment() -> None:
 def _current_payment_type_used() -> str:
     if _admin_test_mode_enabled():
         return "admin_test"
+    if open_beta_enabled():
+        return "beta"
     access = _assessment_access()
     if access.get("is_pro"):
         return "pro"
@@ -741,6 +753,7 @@ def _current_payment_type_used() -> str:
 
 def _payment_type_label(value: str) -> str:
     mapping = {
+        "beta": "Open Beta",
         "free": "Free",
         "credit": "Credit",
         "pro": "Pro",
@@ -805,6 +818,8 @@ def _open_billing_portal() -> None:
 def _can_run_analysis() -> tuple[bool, str]:
     if not st.session_state.get("is_authenticated"):
         return False, "Sign in to start an analysis."
+    if open_beta_enabled():
+        return True, ""
     if _admin_test_mode_enabled():
         return True, ""
     access = _assessment_access()
@@ -817,7 +832,41 @@ def _can_run_analysis() -> tuple[bool, str]:
     return False, "paywall"
 
 
+def render_beta_banner() -> None:
+    if open_beta_enabled():
+        st.info(OPEN_BETA_BANNER)
+
+
+def render_waitlist_section(source: str = "general") -> None:
+    st.write("**Join Waitlist**")
+    st.caption("Join the waitlist to hear about future premium features, early access, and private beta experiments.")
+    default_profile = get_user_profile(st.session_state.get("user_email", "")) or {}
+    with st.form(f"waitlist_form_{source}", clear_on_submit=True):
+        waitlist_name = st.text_input("Name", value=default_profile.get("full_name", ""), key=f"waitlist_name_{source}")
+        waitlist_email = st.text_input("Email", value=st.session_state.get("user_email", ""), key=f"waitlist_email_{source}")
+        interests = st.text_area(
+            "What premium features would you want most?",
+            height=100,
+            key=f"waitlist_interest_{source}",
+            placeholder="Examples: team seats, recruiter reviews, branded exports, deeper analytics.",
+        )
+        submitted = st.form_submit_button("Join Waitlist", use_container_width=True)
+    if submitted:
+        submission = ContactSubmission(
+            created_at=datetime.now().isoformat(timespec="seconds"),
+            user_id=get_user_id((waitlist_email or "").strip().lower()) if (waitlist_email or "").strip() else 0,
+            user_email=(waitlist_email or "").strip().lower(),
+            name=waitlist_name.strip(),
+            message_type="Waitlist",
+            message=(interests.strip() or "Interested in future premium features."),
+            status="new",
+        )
+        save_contact_submission(submission)
+        st.success("You’re on the waitlist. Thanks for helping shape Career Match.")
+
+
 def render_landing_page() -> None:
+    render_beta_banner()
     st.markdown(
         """
         <style>
@@ -970,12 +1019,12 @@ def render_landing_page() -> None:
         unsafe_allow_html=True,
     )
 
-    st.markdown("## Pricing")
+    st.markdown("## Open Beta")
     pricing_cols = st.columns(3)
     pricing_cards = [
-        ("Free", "$0", ["1 assessment"]),
-        ("One-Time", "$4.99", ["1 additional assessment"]),
-        ("Pro", "$19/month", ["Unlimited assessments"]),
+        ("Resume Analyses", "Free", ["Unlimited analyses during beta"]),
+        ("PDF Exports", "Free", ["Unlimited downloads during beta"]),
+        ("Job Evaluations", "Free", ["Unlimited job URL and manual fallback evaluations"]),
     ]
     for column, (title, price, bullets) in zip(pricing_cols, pricing_cards):
         with column:
@@ -988,10 +1037,8 @@ def render_landing_page() -> None:
     faq_items = {
         "How does Career Match work?": "Upload your resume, add a job posting, and Career Match compares the two before generating tailored materials.",
         "Does Career Match rewrite my resume?": "Yes, but only using evidence already present in your uploaded resume.",
-        "Do I get one free assessment?": "Yes. Each registered user starts with one free completed assessment.",
-        "What happens after my free assessment?": "You can buy one more assessment or upgrade to Pro for unlimited assessments.",
-        "Can I buy only one more assessment?": "Yes. Career Match supports a $4.99 one-time additional assessment.",
-        "What does Pro include?": "Pro includes unlimited assessments, unlimited exports, saved resumes, full history, and premium workflow support.",
+        "Is Career Match free right now?": "Yes. Career Match is currently free during beta, including analyses, exports, and job evaluations.",
+        "Will premium features exist later?": "Yes. We’re collecting waitlist interest and feedback now so future premium features solve the right problems.",
         "Is my resume stored?": "Career Match may store resume text, history, feedback, and generated outputs to support your account workflow.",
         "Can I delete my data?": "You can submit a deletion request through the Contact page.",
     }
@@ -1000,7 +1047,7 @@ def render_landing_page() -> None:
             st.write(answer)
 
     st.markdown("## Start")
-    cta_col, pricing_cta_col = st.columns(2)
+    cta_col, waitlist_cta_col = st.columns(2)
     with cta_col:
         if st.button("Start Free Analysis", type="primary", use_container_width=True):
             if st.session_state.get("is_authenticated"):
@@ -1009,10 +1056,13 @@ def render_landing_page() -> None:
                 st.session_state["auth_mode"] = "register"
                 _set_view("auth")
             st.rerun()
-    with pricing_cta_col:
-        if st.button("Upgrade to Pro", use_container_width=True):
+    with waitlist_cta_col:
+        st.caption("Want future premium features?")
+        if st.button("Join Future Features Waitlist", use_container_width=True):
             _set_view("pro")
             st.rerun()
+
+    render_waitlist_section("landing")
 
     st.markdown("## Privacy Policy")
     st.caption("Your files and generated materials stay within the deployed application environment and local application history database configured for this service.")
@@ -1293,7 +1343,60 @@ def _render_term_detail_block(title: str, details: list[dict]) -> None:
         if exact_line:
             st.write(f"  Exact resume line: {exact_line}")
         st.write(f"  Support level: {item.get('support_level', 'Unknown')}")
-        st.write(f"  Reason: {item.get('reason', '')}")
+
+
+def _render_role_match_snapshot(analysis: dict, heading: str = "Recruiter Summary Card") -> None:
+    if not analysis:
+        return
+    recruiter_summary = analysis.get("recruiter_style_summary", {}) or {}
+    score_consistency = analysis.get("score_consistency", {}) or {}
+    level_alignment = analysis.get("compensation_level_alignment", {}) or {}
+    st.write(f"**{heading}**")
+    snapshot_left, snapshot_mid, snapshot_right, snapshot_far_right = st.columns(4, gap="large")
+    with snapshot_left:
+        st.markdown(
+            f"""
+            <div class="mini-card">
+                <h4>Best Case Recruiter Read</h4>
+                <p>{recruiter_summary.get('best_case_recruiter_read', 'Not available')}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with snapshot_mid:
+        st.markdown(
+            f"""
+            <div class="mini-card">
+                <h4>Worst Case Recruiter Read</h4>
+                <p>{recruiter_summary.get('worst_case_recruiter_read', 'Not available')}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with snapshot_right:
+        st.markdown(
+            f"""
+            <div class="mini-card">
+                <h4>Most Important Fix</h4>
+                <p>{recruiter_summary.get('most_important_fix_before_applying', 'Not available')}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with snapshot_far_right:
+        st.markdown(
+            f"""
+            <div class="mini-card">
+                <h4>Level Alignment</h4>
+                <p>{level_alignment.get('label', 'Moderate Alignment')}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    if score_consistency.get("warning"):
+        st.warning(score_consistency.get("warning", ""))
+        if score_consistency.get("explanation"):
+            st.write(f"Reason: {score_consistency.get('explanation', '')}")
 
 
 def _hydrate_saved_analysis(item: dict, saved_analysis: dict | None) -> dict:
@@ -1601,7 +1704,7 @@ def render_pdf_download_button(tab_name, analysis, resume_text, job_text, genera
             label = "Download PDF"
         if not pdf_bytes:
             raise ValueError("PDF generation returned empty content.")
-        st.download_button(
+        download_clicked = st.download_button(
             label=label,
             data=pdf_bytes,
             file_name=file_name,
@@ -1609,6 +1712,24 @@ def render_pdf_download_button(tab_name, analysis, resume_text, job_text, genera
             key=f"pdf_download_{tab_name.lower().replace(' ', '_')}",
         )
         logger.info("pdf_button_rendered tab=%s file_name=%s bytes=%s", tab_name, file_name, len(pdf_bytes))
+        if download_clicked:
+            save_pdf_download(
+                PdfDownloadRecord(
+                    created_at=datetime.now().isoformat(timespec="seconds"),
+                    user_id=get_user_id(st.session_state.get("user_email", "")),
+                    user_email=st.session_state.get("user_email", ""),
+                    application_id=int(st.session_state.get("last_application_id", 0) or 0),
+                    tab_name=tab_name,
+                    file_name=file_name,
+                )
+            )
+            logger.info(
+                "pdf_download_recorded current_user_email=%s application_id=%s tab=%s file_name=%s",
+                st.session_state.get("user_email", "") or "anonymous",
+                int(st.session_state.get("last_application_id", 0) or 0),
+                tab_name,
+                file_name,
+            )
     except Exception as exc:
         logger.exception("PDF export unavailable for tab=%s", tab_name)
         st.warning(f"PDF export is temporarily unavailable for this tab: {exc}")
@@ -1817,7 +1938,9 @@ def render_upload_tab() -> None:
             disabled=True,
         )
         st.session_state["admin_test_mode"] = bool(admin_test_value)
-    if st.session_state.get("is_authenticated") and block_reason == "paywall" and not admin_active:
+    if open_beta_enabled():
+        st.caption("Open beta access is enabled. Analyses, exports, and job evaluations are currently unlimited.")
+    elif st.session_state.get("is_authenticated") and block_reason == "paywall" and not admin_active:
         st.warning("You’ve used your free Career Match assessment.")
         st.caption("Upgrade to Career Match Pro or buy one more assessment to continue. Your previous results remain available.")
         if st.button("View Upgrade Options", type="primary", use_container_width=True):
@@ -1884,6 +2007,7 @@ def render_upload_tab() -> None:
 def render_match_tab() -> None:
     st.subheader("Resume match overview")
     analysis = st.session_state.get("analysis")
+    generated = st.session_state.get("generated") or {}
     if not analysis:
         st.info("Upload a resume and job description in the Upload tab to see the match analysis.")
         return
@@ -1892,7 +2016,7 @@ def render_match_tab() -> None:
         analysis,
         st.session_state.get("resume_text", ""),
         st.session_state.get("job_text", ""),
-        st.session_state.get("generated", {}) or {},
+        generated,
     )
 
     job_fit = analysis.get("job_fit", {})
@@ -1907,6 +2031,27 @@ def render_match_tab() -> None:
     top_gaps = _top_gaps(analysis)
     next_actions = _recommended_next_actions(analysis)
     ats_opportunities = _ats_improvement_opportunities(analysis)
+    score_breakdown = analysis.get("score_breakdown", [])
+    reasons_to_interview = analysis.get("reasons_to_interview", [])
+    reasons_to_reject = analysis.get("reasons_to_reject", [])
+    resume_roi_fixes = analysis.get("resume_roi_fixes", [])
+    recruiter_summary = analysis.get("recruiter_style_summary", {})
+    missing_keywords_by_priority = analysis.get("missing_keywords_by_priority", {})
+    recruiter_confidence_rows = analysis.get("recruiter_confidence_by_competency", [])
+    level_alignment = analysis.get("compensation_level_alignment", {})
+    typical_comparison = analysis.get("compared_with_typical_applicants", [])
+    score_consistency = analysis.get("score_consistency", {})
+    builder = generated.get("resume_builder", {}) or {}
+    keyword_coverage_before = int(analysis.get("keyword_coverage_score", 0) or 0)
+    keyword_coverage_after = int(builder.get("optimized_ats_score", keyword_coverage_before) or keyword_coverage_before)
+    keyword_coverage_label = analysis.get("keyword_coverage_label", "Keyword Coverage Before")
+    coverage_explanation = score_consistency.get("explanation", "Keyword coverage is not the same as overall job fit.")
+    coverage_warning = score_consistency.get("warning", "")
+    if keyword_coverage_after >= fit_score + 12 and direct_score < 60:
+        coverage_warning = "Keyword coverage is strong, but overall fit is limited by missing direct experience."
+    score_explanation = analysis.get("score_explanation", [])
+    recruiter_benchmarking = analysis.get("recruiter_benchmarking", [])
+    roi_projection = analysis.get("roi_projection", {})
 
     hero_left, hero_right = st.columns([1.35, 1], gap="large")
     with hero_left:
@@ -1942,6 +2087,71 @@ def render_match_tab() -> None:
     metric2.metric("Direct Match", f"{direct_score}/100")
     metric3.metric("Transferable Match", f"{transferable_score}/100")
     metric4.metric("Experience", f"{analysis.get('years_of_experience', 0)} years")
+
+    coverage_left, coverage_right = st.columns(2, gap="large")
+    with coverage_left:
+        st.markdown(
+            f"""
+            <div class="mini-card">
+                <h4>{keyword_coverage_label}</h4>
+                <div class="summary-value">{keyword_coverage_before}/100</div>
+                <p class="summary-copy">{coverage_explanation}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with coverage_right:
+        st.markdown(
+            f"""
+            <div class="mini-card">
+                <h4>Keyword Coverage After</h4>
+                <div class="summary-value">{keyword_coverage_after}/100</div>
+                <p class="summary-copy">{coverage_explanation}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    if coverage_warning:
+        st.warning(coverage_warning)
+
+    _render_role_match_snapshot(analysis, "Recruiter Summary Card")
+
+    recruiter_left, recruiter_right = st.columns(2, gap="large")
+    with recruiter_left:
+        st.write("**Why Recruiters Will Interview**")
+        if reasons_to_interview:
+            for item in reasons_to_interview[:5]:
+                with st.expander(f"{item.get('reason_title', 'Reason')} | {item.get('strength_level', 'Transferable')}"):
+                    st.write(item.get("reason_bullet", ""))
+                    st.write(f"**Confidence level:** {item.get('strength_level', 'Transferable')}")
+                    st.write("**Relevant job requirement:** " + (item.get("relevant_job_requirement", "") or "Not specified"))
+                    evidence_lines = item.get("supporting_resume_evidence", [])
+                    if evidence_lines:
+                        st.write("**Supporting resume evidence:**")
+                        for line in evidence_lines:
+                            st.write(f"- {line}")
+        else:
+            st.write("No strong interview reasons were identified.")
+    with recruiter_right:
+        st.write("**Why Recruiters May Pass**")
+        if reasons_to_reject:
+            for item in reasons_to_reject[:5]:
+                with st.expander(f"{item.get('gap_name', 'Gap')} | {item.get('impact_level', 'Medium')} impact"):
+                    st.write(item.get("risk_bullet", ""))
+                    st.write(f"**Why it matters:** {item.get('why_it_matters', '')}")
+                    st.write("**Missing job requirement:** " + (item.get("missing_job_requirement", "") or "Not specified"))
+                    st.write("**Fixability:** " + (item.get("fixability", "") or "Unknown"))
+        else:
+            st.write("No major reject risks were identified.")
+
+    st.write("**Highest Impact Fixes**")
+    st.write(f"Current Score: {roi_projection.get('current_score', fit_score)}")
+    st.write(f"Potential Score: {roi_projection.get('potential_score', fit_score)}")
+    for item in roi_projection.get("top_fixes", [])[:5]:
+        st.write(
+            f"- {item.get('gap_or_keyword', '')} .......... +{item.get('estimated_score_impact', 0)} | "
+            f"{item.get('expected_impact', 'Medium')} impact"
+        )
 
     detail_left, detail_right = st.columns([1.2, 1], gap="large")
     with detail_left:
@@ -1987,6 +2197,128 @@ def render_match_tab() -> None:
             unsafe_allow_html=True,
         )
 
+    st.write("**Why This Score?**")
+    explanation_left, explanation_right = st.columns([1.2, 1], gap="large")
+    with explanation_left:
+        if score_explanation:
+            for item in score_explanation:
+                st.write(
+                    f"- {item.get('category', '')}: {item.get('weight', 0)}% weight | "
+                    f"raw {item.get('raw_score', 0)}/100 | contribution {item.get('contribution', 0)}"
+                )
+        else:
+            st.write("Score explanation is not available.")
+    with explanation_right:
+        st.write("**Highest ROI Fixes**")
+        for item in roi_projection.get("top_fixes", []):
+            st.write(
+                f"- {item.get('gap_or_keyword', '')} .......... +{item.get('estimated_score_impact', 0)} | "
+                f"{item.get('expected_impact', 'Medium')} impact"
+            )
+
+    st.write("**Competency Score Breakdown**")
+    if score_breakdown:
+        for item in score_breakdown:
+            with st.expander(
+                f"{item.get('competency', 'Competency')} | Contribution {item.get('contribution', 0)}/100 | {item.get('confidence_level', 'Unsupported')}"
+            ):
+                st.write(f"**Weight:** {item.get('weight', 0)}")
+                st.write(f"**Raw score:** {item.get('raw_score', 0)}/100")
+                st.write(f"**Contribution to final score:** {item.get('contribution', 0)}/100")
+                st.write(f"**Evidence level:** {item.get('evidence_level', 'Unsupported')}")
+                st.write(f"**Confidence level:** {item.get('confidence_level', 'Unsupported')}")
+                st.write("**Matched terms:** " + (", ".join(item.get("matched_terms", [])) or "None"))
+                st.write("**Missing requirement:** " + (item.get("missing_requirement", "") or "None"))
+                evidence_lines = item.get("matched_resume_evidence", [])
+                if evidence_lines:
+                    st.write("**Matched resume evidence:**")
+                    for line in evidence_lines:
+                        st.write(f"- {line}")
+    else:
+        st.write("Score breakdown is not available for this analysis yet.")
+
+    st.write("**Highest ROI Fixes**")
+    if resume_roi_fixes:
+        for item in resume_roi_fixes:
+            support_label = "Supported" if item.get("safely_supported") else "Not safely supported"
+            with st.expander(
+                f"{item.get('gap_or_keyword', 'Gap')} | {item.get('expected_impact', 'Medium')} impact | +{item.get('estimated_score_impact', 0)} potential points"
+            ):
+                st.write(f"**Evidence level:** {item.get('evidence_level', 'Unsupported')}")
+                st.write(f"**Why it matters:** {item.get('why_it_matters', '')}")
+                st.write(f"**Recommended action:** {item.get('recommended_action', '')}")
+                st.write(f"**Safe to use:** {support_label}")
+                evidence_lines = item.get("supporting_resume_evidence", [])
+                if evidence_lines:
+                    st.write("**Supporting resume evidence:**")
+                    for line in evidence_lines:
+                        st.write(f"- {line}")
+    else:
+        st.write("No high-impact fixes were identified.")
+
+    st.write("**Recruiter Confidence**")
+    if recruiter_confidence_rows:
+        for item in recruiter_confidence_rows:
+            with st.expander(f"{item.get('competency', 'Competency')} | {item.get('confidence_level', 'Low')} confidence"):
+                st.write(f"**Direct Score:** {item.get('direct_score', 0)}/100")
+                st.write(f"**Transferable Score:** {item.get('transferable_score', 0)}/100")
+                st.write(f"**Overall Score:** {item.get('overall_score', 0)}/100")
+                st.write(f"**Evidence Level:** {item.get('evidence_level', 'Unsupported')}")
+                evidence_summary = item.get("evidence_summary", [])
+                st.write("**Evidence Summary:**")
+                for line in evidence_summary:
+                    st.write(f"- {line}")
+                with st.expander("View Full Evidence"):
+                    st.write("**Evidence:** " + (", ".join(item.get("evidence", [])) or "None"))
+                    for line in item.get("matched_resume_evidence", []):
+                        st.write(f"- {line}")
+    else:
+        st.write("No recruiter confidence data is available.")
+
+    priority_left, priority_right = st.columns(2, gap="large")
+    with priority_left:
+        st.write("**Missing Keywords by Priority**")
+        for priority in ["Critical", "Important", "Nice-to-have"]:
+            items = missing_keywords_by_priority.get(priority, [])
+            st.write(f"**{priority}**")
+            if not items:
+                st.write("None identified")
+                continue
+            for item in items:
+                with st.expander(item.get("term", "")):
+                    st.write(f"**Competency:** {item.get('competency', '')}")
+                    st.write(f"**JD keyword:** {item.get('extracted_keyword', '')}")
+                    st.write(f"**Confidence:** {item.get('confidence_score', 0)}")
+                    st.write(item.get("job_description_sentence", "") or "No direct job-description sentence captured.")
+    with priority_right:
+        st.write("**Compensation / Level Alignment**")
+        st.markdown(
+            f"""
+            <div class="mini-card">
+                <h4>{level_alignment.get('label', 'Moderate Alignment')}</h4>
+                <div class="summary-value">{level_alignment.get('alignment_score', 0)}/100</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        for item in level_alignment.get("reasoning", []):
+            st.write(f"- {item}")
+
+        st.write("**Compared To Successful Candidates**")
+        if recruiter_benchmarking:
+            for item in recruiter_benchmarking:
+                icon = "✓" if item.get("status") == "Above" else "⚠" if item.get("status") == "Below" else "•"
+                st.write(
+                    f"{icon} {item.get('competency', '')} | You: {item.get('you_score', 0)} | "
+                    f"Target: {item.get('target_score', 0)} | {item.get('status', 'Competitive')}"
+                )
+        elif typical_comparison:
+            for item in typical_comparison:
+                evidence = ", ".join(item.get("evidence", [])[:3]) or "No clear evidence"
+                st.write(f"- {item.get('competency', '')}: {item.get('relative_strength', 'Unknown')} | {item.get('confidence_level', 'Low')} confidence | Evidence: {evidence}")
+        else:
+            st.write("No comparison data is available.")
+
     st.caption(
         f"{analysis['job_title']} at {analysis['company_name']} | "
         f"{analysis.get('role_family', 'General Professional Role')}"
@@ -2002,7 +2334,7 @@ def render_match_tab() -> None:
     exact_keyword_matches = _exact_keyword_matches(analysis)
     semantic_skill_matches = _semantic_skill_matches(analysis)
 
-    with st.expander("See detailed fit reasoning", expanded=False):
+    with st.expander("Detailed fit reasoning", expanded=False):
         st.write(f"**Likely job title:** {analysis['job_title']}")
         st.write(f"**Likely company:** {analysis['company_name']}")
         st.write(f"**Role lens:** {analysis.get('role_family', 'General Professional Role')}")
@@ -2054,99 +2386,50 @@ def render_match_tab() -> None:
                 else:
                     st.write("- Certifications: none clearly required in the job description")
 
-    left, right = st.columns(2)
-    with left:
-        st.write("**Exact Keyword Matches**")
-        st.write(", ".join(exact_keyword_matches) or "None identified")
-        st.write("**Semantic Matches**")
-        if semantic_skill_matches:
-            st.write("**Semantically Matched Skills**")
-            for item in semantic_skill_matches:
-                details = (
-                    f" | Direct {item['direct_score']}% | Transferable {item['transferable_score']}%"
-                    + (f" | Evidence: {', '.join(item.get('matched_terms', [])[:3])}" if item.get("matched_terms") else "")
-                )
-                st.write(f"- {item['skill']} ({item['confidence']}%){details}")
-        elif not exact_keyword_matches:
-            st.write("None identified")
-        else:
-            st.write("None identified")
-        st.write("**Recruiter competency scores**")
-        for item in analysis.get("competency_scores", []):
-            st.write(
-                f"- {item['competency']}: Direct {item.get('direct_score', 0)}% | "
-                f"Transferable {item.get('transferable_score', 0)}% | "
-                f"Overall {item['score']}%"
-                + (f" | Evidence: {', '.join(item.get('matched', [])[:3])}" if item.get("matched") else "")
-            )
-        st.write("**Role-specific strengths**")
-        for item in analysis["role_specific_strengths"]:
-            st.write(f"- {item}")
-    with right:
-        st.write("**Missing keywords**")
-        st.write(", ".join(analysis["missing_keywords"]) or "None identified")
-        st.write("**Competency expectations**")
-        for item in analysis.get("competency_scores", []):
-            expected = ", ".join(item.get("missing", [])[:4]) or "None"
-            st.write(f"- {item['competency']}: {expected}")
-        st.write("**Gaps to address**")
-        for item in analysis["gaps"]:
-            st.write(f"- {item}")
+    with st.expander("Keyword and evidence detail", expanded=False):
+        left, right = st.columns(2)
+        with left:
+            st.write("**Exact Keyword Matches**")
+            st.write(", ".join(exact_keyword_matches) or "None identified")
+            st.write("**Semantic Matches**")
+            if semantic_skill_matches:
+                for item in semantic_skill_matches:
+                    details = (
+                        f" | Direct {item['direct_score']}% | Transferable {item['transferable_score']}%"
+                        + (f" | Evidence: {', '.join(item.get('matched_terms', [])[:3])}" if item.get("matched_terms") else "")
+                    )
+                    st.write(f"- {item['skill']} ({item['confidence']}%){details}")
+            else:
+                st.write("None identified")
+        with right:
+            st.write("**Role-specific strengths**")
+            for item in analysis["role_specific_strengths"]:
+                st.write(f"- {item}")
+            st.write("**Gaps to address**")
+            for item in analysis["gaps"]:
+                st.write(f"- {item}")
 
-    role_gap = analysis.get("role_gap_analysis", {})
-    gap_left, gap_right = st.columns(2)
-    with gap_left:
-        st.write("**Missing Experience**")
-        for item in role_gap.get("missing_experience", []):
-            st.write(f"- {item}")
-        st.write("**Transferable Experience**")
-        for item in role_gap.get("transferable_experience", []):
-            st.write(f"- {item}")
-    with gap_right:
-        st.write("**Resume Repositioning Opportunities**")
-        for item in role_gap.get("resume_repositioning", []):
-            st.write(f"- {item}")
-        st.write("**Direct Match Gaps**")
-        for item in role_gap.get("missing_competencies", []):
-            st.write(f"- {item}")
-        st.write("**Hiring Manager View**")
-        for item in analysis.get("hiring_manager_view", []):
-            st.write(f"- {item}")
-
-    reasoning_left, reasoning_right = st.columns(2)
-    with reasoning_left:
-        st.write("**Why skills matched**")
-        for item in analysis.get("match_reasoning", []):
-            with st.expander(f"{item.get('competency', 'Competency')} | Score {item.get('score', 0)}/100"):
-                st.write(item.get("why_it_matched", ""))
-                st.write("**Matched terms:** " + (", ".join(item.get("matched_terms", [])) or "None"))
-                st.write("**Exact resume bullets / lines:**")
-                for line in item.get("resume_evidence_lines", []):
-                    st.write(f"- {line}")
-    with reasoning_right:
-        st.write("**Why skills are still missing**")
-        for item in analysis.get("missing_reasoning", []):
-            with st.expander(item.get("competency", "Competency")):
-                st.write(item.get("why_it_is_missing", ""))
-                st.write("**Missing terms:** " + (", ".join(item.get("missing_terms", [])) or "None"))
-                closest = item.get("closest_resume_evidence", [])
-                if closest:
-                    st.write("**Closest resume evidence:**")
-                    for line in closest:
+        reasoning_left, reasoning_right = st.columns(2)
+        with reasoning_left:
+            st.write("**Why skills matched**")
+            for item in analysis.get("match_reasoning", []):
+                with st.expander(f"{item.get('competency', 'Competency')} | Score {item.get('score', 0)}/100"):
+                    st.write(item.get("why_it_matched", ""))
+                    st.write("**Matched terms:** " + (", ".join(item.get("matched_terms", [])) or "None"))
+                    st.write("**Exact resume bullets / lines:**")
+                    for line in item.get("resume_evidence_lines", []):
                         st.write(f"- {line}")
-
-    st.write("**Recruiter-quality intelligence**")
-    for item in analysis.get("recruiter_quality_intelligence", []):
-        with st.expander(item.get("competency", "Competency")):
-            st.write(f"**Direct Match Score:** {item.get('direct_match_score', 0)}/100")
-            st.write(f"**Transferable Match Score:** {item.get('transferable_match_score', 0)}/100")
-            st.write("**Exact Resume Evidence:**")
-            for line in item.get("exact_resume_evidence", []):
-                st.write(f"- {line}")
-            st.write(f"**Why It Helps:** {item.get('why_this_evidence_matters', '')}")
-            st.write(f"**Gap:** {item.get('where_resume_falls_short', '')}")
-            st.write(f"**Repositioning:** {item.get('repositioning', '')}")
-            st.write(f"**Interview Talking Point:** {item.get('interview_talking_point', '')}")
+        with reasoning_right:
+            st.write("**Why skills are still missing**")
+            for item in analysis.get("missing_reasoning", []):
+                with st.expander(item.get("competency", "Competency")):
+                    st.write(item.get("why_it_is_missing", ""))
+                    st.write("**Missing terms:** " + (", ".join(item.get("missing_terms", [])) or "None"))
+                    closest = item.get("closest_resume_evidence", [])
+                    if closest:
+                        st.write("**Closest resume evidence:**")
+                        for line in closest:
+                            st.write(f"- {line}")
 
     render_learning_resources_section("match")
     render_feedback_section()
@@ -2154,17 +2437,19 @@ def render_match_tab() -> None:
 
 def render_tailored_resume_tab() -> None:
     st.subheader("Tailored resume content")
+    analysis = st.session_state.get("analysis", {}) or {}
     generated = st.session_state.get("generated")
     if not generated:
         st.info("Your tailored resume content will appear here after analysis.")
         return
     render_pdf_download_button(
         "Tailored Resume",
-        st.session_state.get("analysis", {}) or {},
+        analysis,
         st.session_state.get("resume_text", ""),
         st.session_state.get("job_text", ""),
         generated,
     )
+    _render_role_match_snapshot(analysis, "Recruiter Summary Card")
 
     st.write("**Professional summary**")
     st.text_area("Summary", generated["professional_summary"], height=140)
@@ -2175,6 +2460,7 @@ def render_tailored_resume_tab() -> None:
 
 def render_resume_builder_tab() -> None:
     st.subheader("Resume Builder")
+    analysis = st.session_state.get("analysis", {}) or {}
     generated = st.session_state.get("generated")
     if not generated:
         st.info("Your optimized full resume will appear here after analysis.")
@@ -2186,11 +2472,12 @@ def render_resume_builder_tab() -> None:
         return
     render_pdf_download_button(
         "Resume Builder",
-        st.session_state.get("analysis", {}) or {},
+        analysis,
         st.session_state.get("resume_text", ""),
         st.session_state.get("job_text", ""),
         generated,
     )
+    _render_role_match_snapshot(analysis, "Recruiter Summary Card")
 
     st.warning(
         "Review before submitting. This tool rewrites only from your uploaded resume and does not verify employer requirements."
@@ -2394,22 +2681,25 @@ def render_resume_builder_tab() -> None:
 
 def render_cover_letter_tab() -> None:
     st.subheader("Cover letter")
+    analysis = st.session_state.get("analysis", {}) or {}
     generated = st.session_state.get("generated")
     if not generated:
         st.info("Your cover letter will appear here after analysis.")
         return
     render_pdf_download_button(
         "Cover Letter",
-        st.session_state.get("analysis", {}) or {},
+        analysis,
         st.session_state.get("resume_text", ""),
         st.session_state.get("job_text", ""),
         generated,
     )
+    _render_role_match_snapshot(analysis, "Recruiter Summary Card")
     st.text_area("Cover letter", generated["cover_letter"], height=420)
 
 
 def render_interview_tab() -> None:
     st.subheader("Interview Intelligence")
+    analysis = st.session_state.get("analysis", {}) or {}
     generated = st.session_state.get("generated")
     if not generated:
         st.info("Interview preparation insights will appear here after analysis.")
@@ -2421,11 +2711,12 @@ def render_interview_tab() -> None:
         return
     render_pdf_download_button(
         "Interview Intelligence",
-        st.session_state.get("analysis", {}) or {},
+        analysis,
         st.session_state.get("resume_text", ""),
         st.session_state.get("job_text", ""),
         generated,
     )
+    _render_role_match_snapshot(analysis, "Recruiter Summary Card")
 
     top_questions = dashboard.get("top_25_likely_questions", [])
     technical_questions = dashboard.get("technical_questions", [])
@@ -2496,6 +2787,7 @@ def render_interview_tab() -> None:
 
 def render_career_coach_tab() -> None:
     st.subheader("Career Coach")
+    analysis = st.session_state.get("analysis", {}) or {}
     generated = st.session_state.get("generated")
     if not generated:
         st.info("Career coaching insights will appear here after analysis.")
@@ -2507,11 +2799,12 @@ def render_career_coach_tab() -> None:
         return
     render_pdf_download_button(
         "Career Coach",
-        st.session_state.get("analysis", {}) or {},
+        analysis,
         st.session_state.get("resume_text", ""),
         st.session_state.get("job_text", ""),
         generated,
     )
+    _render_role_match_snapshot(analysis, "Recruiter Summary Card")
 
     st.caption(coach.get("overview", ""))
 
@@ -2565,33 +2858,37 @@ def render_career_coach_tab() -> None:
 
 def render_linkedin_tab() -> None:
     st.subheader("LinkedIn recruiter message")
+    analysis = st.session_state.get("analysis", {}) or {}
     generated = st.session_state.get("generated")
     if not generated:
         st.info("Your LinkedIn outreach message will appear here after analysis.")
         return
     render_pdf_download_button(
         "LinkedIn Message",
-        st.session_state.get("analysis", {}) or {},
+        analysis,
         st.session_state.get("resume_text", ""),
         st.session_state.get("job_text", ""),
         generated,
     )
+    _render_role_match_snapshot(analysis, "Recruiter Summary Card")
     st.text_area("LinkedIn message", generated["linkedin_recruiter_message"], height=220)
 
 
 def render_thank_you_tab() -> None:
     st.subheader("Thank-you email")
+    analysis = st.session_state.get("analysis", {}) or {}
     generated = st.session_state.get("generated")
     if not generated:
         st.info("Your thank-you email will appear here after analysis.")
         return
     render_pdf_download_button(
         "Thank You Email",
-        st.session_state.get("analysis", {}) or {},
+        analysis,
         st.session_state.get("resume_text", ""),
         st.session_state.get("job_text", ""),
         generated,
     )
+    _render_role_match_snapshot(analysis, "Recruiter Summary Card")
     st.text_area("Thank-you email", generated["thank_you_email"], height=220)
 
 
@@ -2609,6 +2906,7 @@ def render_export_tab() -> None:
         st.session_state.get("job_text", ""),
         generated,
     )
+    _render_role_match_snapshot(analysis, "Recruiter Summary Card")
 
     package = {
         "analysis": analysis,
@@ -2664,6 +2962,7 @@ def render_export_tab() -> None:
 
 def render_evidence_tab() -> None:
     st.subheader("Evidence")
+    analysis = st.session_state.get("analysis", {}) or {}
     generated = st.session_state.get("generated")
     if not generated:
         st.info("Evidence details will appear here after analysis.")
@@ -2675,11 +2974,12 @@ def render_evidence_tab() -> None:
         return
     render_pdf_download_button(
         "Evidence",
-        st.session_state.get("analysis", {}) or {},
+        analysis,
         st.session_state.get("resume_text", ""),
         st.session_state.get("job_text", ""),
         generated,
     )
+    _render_role_match_snapshot(analysis, "Recruiter Summary Card")
 
     st.metric("Trust Score", f"{builder.get('trust_score', 0)}%")
     st.write("**Added keywords**")
@@ -2850,6 +3150,7 @@ def render_auth_page() -> None:
 
 
 def render_app_header() -> None:
+    render_beta_banner()
     header_left, header_middle, header_right = st.columns([6, 2, 2])
     with header_left:
         st.markdown(
@@ -2906,26 +3207,15 @@ def render_dashboard_page() -> None:
     col1.metric("Jobs Analyzed", metrics.get("jobs_analyzed", 0))
     col2.metric("Average Fit Score", f"{metrics.get('average_fit_score', 0)}/100")
     col3.metric("Best Fit Score", f"{metrics.get('best_fit_score', 0)}/100")
-    col4.metric(
-        "Free Assessments",
-        f"{metrics.get('free_assessments_used', 0)}/{metrics.get('free_assessments_limit', 1)} used",
-    )
-    col5.metric("Current Plan", str(metrics.get("current_plan", "free")))
+    col4.metric("PDF Downloads", metrics.get("pdf_downloads", 0))
+    col5.metric("Current Access", str(metrics.get("current_plan", "Open Beta")))
     extra1, extra2, extra3, extra4 = st.columns(4)
-    extra1.metric("Purchased Credits", metrics.get("assessment_credits", 0))
-    extra2.metric("Free Assessments Remaining", metrics.get("free_assessments_remaining", 0))
-    extra3.metric("Subscription Status", str(metrics.get("subscription_status", "free")).title())
-    extra4.metric("Renewal Date", metrics.get("renewal_date", "") or "N/A")
+    extra1.metric("Analyses Per User", metrics.get("analyses_per_user", 0))
+    extra2.metric("Repeat Users", metrics.get("repeat_users", 0))
+    extra3.metric("Feedback Submissions", metrics.get("feedback_submissions", 0))
+    extra4.metric("Subscription Status", "Not required")
 
-    if str(metrics.get("current_plan", "free")).lower() == "pro":
-        st.success("Career Match Pro Active")
-    elif metrics.get("free_assessments_remaining", 0) > 0:
-        st.info(f"You have {metrics.get('free_assessments_remaining', 0)} free assessments remaining.")
-    else:
-        st.warning("You’ve used your free assessment. Upgrade or buy another assessment.")
-        if st.button("Upgrade to Pro", key="dashboard_upgrade_pro", use_container_width=True):
-            st.session_state["app_page"] = "Pro"
-            st.rerun()
+    st.success("Open beta access is active. Analyses, exports, and job evaluations are currently free.")
 
     st.write("**Recent analyses**")
     if not recent:
@@ -3170,7 +3460,6 @@ def render_profile_page() -> None:
     st.subheader("User Profile")
     user_email = st.session_state.get("user_email", "")
     profile = get_user_profile(user_email) or {}
-    subscription = get_subscription_blueprint()
     access = _assessment_access()
 
     with st.form("profile_form", clear_on_submit=False):
@@ -3184,152 +3473,32 @@ def render_profile_page() -> None:
         else:
             st.error(message)
 
-    st.write("**Subscription**")
-    st.write(f"Current plan: {profile.get('subscription_plan', profile.get('subscription_status', 'free')).title()}")
-    st.write(
-        f"Free assessments used: {access.get('used', 0)} / {access.get('limit', 1)} | Remaining: {access.get('remaining', 0)}"
-    )
-    st.write(f"Purchased credits: {access.get('credits', 0)}")
+    st.write("**Access**")
+    st.write(f"Current plan: {access.get('current_plan_label', 'Open Beta')}")
+    st.write("Analysis access: Unlimited during beta")
+    st.write("PDF exports: Unlimited during beta")
     st.write(f"Total analyses: {get_dashboard_metrics(user_email).get('jobs_analyzed', 0)}")
-    st.write(f"Subscription status: {profile.get('subscription_status', 'free').title()}")
+    st.write("Subscription status: Not required during beta")
     st.write(f"Email verified: {'Yes' if profile.get('email_verified') else 'No'}")
-    st.caption("Stripe-ready billing scaffolding is configured so checkout and portal flows can be attached without changing the product workflow.")
-    for plan in subscription.get("plans", []):
-        with st.expander(plan["name"]):
-            for feature in plan.get("features", []):
-                st.write(f"- {feature}")
-    st.write("**Stripe readiness**")
-    st.write(f"- Public key configured: {'Yes' if subscription.get('public_key_configured') else 'No'}")
-    st.write(f"- Secret key configured: {'Yes' if subscription.get('secret_key_configured') else 'No'}")
-    st.write(f"- Webhook secret configured: {'Yes' if subscription.get('webhook_secret_configured') else 'No'}")
-    st.write(f"- Stripe customer id: {profile.get('stripe_customer_id', '') or 'Not set'}")
-    st.write(f"- Stripe subscription id: {profile.get('stripe_subscription_id', '') or 'Not set'}")
-    st.write("**Implementation next steps**")
-    for item in subscription.get("next_steps", []):
-        st.write(f"- {item}")
-    profile_left, profile_right = st.columns(2)
-    with profile_left:
-        if st.button("Upgrade to Pro", use_container_width=True):
-            st.session_state["app_page"] = "Pro"
-            st.rerun()
-    with profile_right:
-        if st.button("Manage Billing", use_container_width=True):
-            st.session_state["app_page"] = "Subscription"
-            st.rerun()
+    st.caption("Career Match is in open beta. Premium features are not required to use the core workflow right now.")
+    render_waitlist_section("profile")
     st.caption("Change password is available from the auth screen. Delete account requests can be submitted through Contact.")
 
 
 def render_subscription_page() -> None:
     st.subheader("Subscription")
-    _checkout_status_notice()
-    user_email = st.session_state.get("user_email", "")
-    profile = get_user_profile(user_email) or {}
-    access = _assessment_access()
-
-    status_left, status_mid, status_right, status_far = st.columns(4)
-    status_left.metric("Current Plan", str(profile.get("subscription_plan", "free")).title())
-    status_mid.metric("Billing Status", str(profile.get("subscription_status", "free")).title())
-    status_right.metric("Free Assessments Used", f"{access.get('used', 0)}/{access.get('limit', 1)}")
-    status_far.metric("Assessment Credits", access.get("credits", 0))
-    if not payments_configured():
-        st.info("Stripe test mode is not fully configured in this environment yet.")
-
-    renewal_date = profile.get("subscription_end", "") or "Not scheduled"
-    st.write(f"**Renewal date:** {renewal_date}")
-    st.write(f"**Stripe customer id:** {profile.get('stripe_customer_id', '') or 'Not set'}")
-    st.write(f"**Stripe subscription id:** {profile.get('stripe_subscription_id', '') or 'Not set'}")
-
-    if access.get("is_pro"):
-        st.success("Career Match Pro is active on this account.")
-    elif access.get("remaining", 0) > 0:
-        st.info("You still have your free assessment available.")
-    else:
-        st.warning("You’ve used your free Career Match assessment.")
-
-    st.write("**Upgrade options**")
-    option_left, option_right = st.columns(2)
-    with option_left:
-        if st.button("Upgrade to Career Match Pro", key="subscription_upgrade_pro", type="primary", use_container_width=True):
-            _start_checkout("pro")
-        if st.session_state.get("pro_checkout_url"):
-            st.link_button("Continue to Secure Pro Checkout", st.session_state["pro_checkout_url"], use_container_width=True)
-    with option_right:
-        if st.button("Buy One Assessment", key="subscription_buy_credit", use_container_width=True):
-            _start_checkout("credit")
-        if st.session_state.get("credit_checkout_url"):
-            st.link_button("Continue to Secure Assessment Checkout", st.session_state["credit_checkout_url"], use_container_width=True)
-
-    manage_left, manage_right = st.columns(2)
-    with manage_left:
-        if st.button("Open Billing Portal", use_container_width=True):
-            _open_billing_portal()
-        if st.session_state.get("billing_portal_url"):
-            st.link_button("Continue to Billing Portal", st.session_state["billing_portal_url"], use_container_width=True)
-    with manage_right:
-        if st.button("Cancel Subscription", use_container_width=True):
-            result = cancel_subscription(user_email)
-            if result.get("ok"):
-                st.success(result.get("message", "Subscription updated."))
-            else:
-                st.error(result.get("message", "Unable to update the subscription."))
+    st.success("Open beta mode is active. No subscription is required to use Career Match right now.")
+    st.write("- Unlimited resume analyses")
+    st.write("- Unlimited PDF exports")
+    st.write("- Unlimited job description evaluations")
+    render_waitlist_section("subscription")
 
 
 def render_pro_page() -> None:
     st.subheader("Career Match Pro")
-    _checkout_status_notice()
-    subscription = get_subscription_blueprint()
-    billing_diagnostics = get_billing_diagnostics()
-    access = _assessment_access() if st.session_state.get("is_authenticated") else {
-        "used": 0,
-        "remaining": 1,
-        "limit": 1,
-        "subscription_status": "free",
-        "is_pro": False,
-    }
-
-    if not access.get("is_pro") and access.get("used", 0) >= access.get("limit", 1):
-        st.warning("You’ve used your free Career Match assessment.")
-    if not payments_configured():
-        st.info("Stripe test mode is not fully configured in this environment yet.")
-
-    left, right = st.columns(2)
-    for col, plan in zip((left, right), subscription.get("plans", [])):
-        with col:
-            st.markdown(
-                f"""
-                <div class="page-card">
-                  <h3 style="margin-top:0;">{plan['name']}</h3>
-                  <p style="font-size:1.15rem; font-weight:700; color:#1d4ed8;">{plan.get('price', '')}</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            for feature in plan.get("features", []):
-                st.write(f"- {feature}")
-
-    st.write("**Pro benefits**")
-    for benefit in [
-        "Unlimited Resume Match",
-        "Unlimited Resume Builder",
-        "Tailored Resume Content",
-        "Interview Intelligence",
-        "Career Coach",
-        "Cover Letters",
-        "LinkedIn Messages",
-        "Thank You Emails",
-        "Analysis History",
-    ]:
-        st.write(f"- {benefit}")
-
-    if st.button("Upgrade to Career Match Pro", type="primary", use_container_width=True):
-        _start_checkout("pro")
-    if st.session_state.get("pro_checkout_url"):
-        st.link_button("Continue to Secure Pro Checkout", st.session_state["pro_checkout_url"], use_container_width=True)
-
-    if st.button("Buy One Assessment", use_container_width=True):
-        _start_checkout("credit")
-    if st.session_state.get("credit_checkout_url"):
-        st.link_button("Continue to Secure Assessment Checkout", st.session_state["credit_checkout_url"], use_container_width=True)
+    st.success("Career Match is currently free during beta. We welcome feedback.")
+    st.write("Future premium capabilities may include team collaboration, advanced analytics, recruiter review workflows, and branded exports.")
+    render_waitlist_section("pro")
 
     if st.button("Return to Dashboard", use_container_width=True):
         if st.session_state.get("is_authenticated"):
@@ -3343,18 +3512,9 @@ def render_pro_page() -> None:
             _set_view("home")
             st.rerun()
 
-    with st.expander("Temporary Stripe Diagnostics"):
-        st.write(f"**Stripe configured:** {'Yes' if billing_diagnostics.get('stripe_configured') else 'No'}")
-        st.write(f"**Price ID loaded:** {billing_diagnostics.get('pro_monthly_price_id') or 'Missing'}")
-        st.write(f"**Endpoint being called:** {billing_diagnostics.get('endpoint')}")
-        st.write(f"**APP_BASE_URL:** {billing_diagnostics.get('app_base_url')}")
-        st.write(f"**Success URL:** {billing_diagnostics.get('success_url')}")
-        st.write(f"**Cancel URL:** {billing_diagnostics.get('cancel_url')}")
+    with st.expander("Beta diagnostics"):
+        st.write(f"**Open beta enabled:** {'Yes' if open_beta_enabled() else 'No'}")
         st.write(f"**Authenticated user:** {st.session_state.get('user_email', '') or 'Not signed in'}")
-        st.write(
-            f"**Last checkout exception:** "
-            f"{st.session_state.get('last_checkout_exception') or billing_diagnostics.get('last_checkout_exception') or 'None'}"
-        )
 
 
 def render_contact_page() -> None:
@@ -3393,7 +3553,7 @@ def render_privacy_page() -> None:
     st.write("Resume uploads and job descriptions are processed to generate fit analysis, resume rewrites, interview preparation, and related outputs.")
     st.write("Account records include email addresses and securely hashed passwords. Plaintext passwords are not stored.")
     st.write("Generated outputs and saved analyses may be retained in the application database to support dashboard metrics, history, reopened analyses, and saved resume features.")
-    st.write("Payment data is handled through Stripe when billing is configured. Career Match stores only the metadata needed to track plan status, credits, and payment history.")
+    st.write("If billing is enabled in the future, payment data would be handled through Stripe. During beta, Career Match stores only the metadata needed for account workflow, history, and analytics.")
     st.write("Career Match does not sell user resumes. Users may request account or data deletion through the contact channel. Contact email placeholder: support@careermatch.example")
     st.write("Retention periods may vary by plan, support need, and deployment environment.")
     if not st.session_state.get("is_authenticated"):
@@ -3408,7 +3568,7 @@ def render_terms_page() -> None:
     st.write("The service does not guarantee interviews, job offers, or employment outcomes.")
     st.write("Career Match does not provide legal, financial, employment, or career guarantees.")
     st.write("Users are responsible for confirming that generated materials are accurate, truthful, and appropriate for the target role.")
-    st.write("Subscriptions and one-time purchases are subject to configured billing terms. Refund policy placeholder: contact support for billing review.")
+    st.write("Future premium plans may be introduced after beta. Any future billing terms would be communicated clearly before charges apply.")
     st.write("Accounts may be limited or terminated for abuse, misuse, or service protection reasons.")
     st.write("Service availability may vary based on hosting, third-party APIs, maintenance windows, and platform outages.")
     if not st.session_state.get("is_authenticated"):
@@ -3478,10 +3638,10 @@ def render_admin_page() -> None:
 
         stat1, stat2, stat3, stat4, stat5, stat6 = st.columns(6)
         stat1.metric("Registrations", metrics.get("registrations", 0))
-        stat2.metric("Paid Assessments", metrics.get("paid_assessments", 0))
-        stat3.metric("Pro Subscriptions", metrics.get("pro_users", 0))
-        stat4.metric("Page Views", metrics.get("page_views", 0))
-        stat5.metric("Average Fit Score", metrics.get("average_fit_score", 0))
+        stat2.metric("Total Analyses", metrics.get("total_analyses", 0))
+        stat3.metric("Analyses / User", metrics.get("analyses_per_user", 0))
+        stat4.metric("Repeat Users", metrics.get("repeat_users", 0))
+        stat5.metric("PDF Downloads", metrics.get("pdf_downloads", 0))
         stat6.metric("Unread Messages", metrics.get("open_contact_messages", 0))
 
         affiliate1, affiliate2, affiliate3, affiliate4, affiliate5 = st.columns(5)
@@ -3489,21 +3649,25 @@ def render_admin_page() -> None:
         affiliate2.metric("Affiliate Clicks (7d)", metrics.get("affiliate_clicks_7d", 0))
         affiliate3.metric("Affiliate Clicks (30d)", metrics.get("affiliate_clicks_30d", 0))
         affiliate4.metric("Top Recommendation", metrics.get("top_clicked_recommendation", "") or "None yet")
-        affiliate5.metric("Top Category", metrics.get("top_clicked_category", "") or "None yet")
+        affiliate5.metric("Feedback Submissions", metrics.get("feedback_submissions", 0))
 
         aux1, aux2 = st.columns(2)
         with aux1:
             st.write("**Business snapshot**")
             st.write(f"- Total users: {metrics.get('total_users', 0)}")
             st.write(f"- Active users in the last 30 days: {metrics.get('active_users', 0)}")
-            st.write(f"- Paid users: {metrics.get('paid_users', 0)}")
-            st.write(f"- Completed assessments: {metrics.get('completed_assessments', 0)}")
+            st.write(f"- Total analyses: {metrics.get('total_analyses', 0)}")
+            st.write(f"- Average analyses per user: {metrics.get('analyses_per_user', 0)}")
         with aux2:
-            st.write("**Support snapshot**")
+            st.write("**Engagement snapshot**")
             st.write(f"- Contact messages: {metrics.get('total_contact_messages', 0)}")
             st.write(f"- Unread / open messages: {metrics.get('open_contact_messages', 0)}")
             st.write(f"- Feedback items: {metrics.get('total_feedback_items', 0)}")
-            st.write(f"- Pro subscriptions: {metrics.get('pro_users', 0)}")
+            st.write(f"- PDF downloads: {metrics.get('pdf_downloads', 0)}")
+
+        st.write("**Most-used tabs**")
+        for item in metrics.get("most_used_tabs", []):
+            st.write(f"- {item.get('app_page', '')}: {item.get('view_count', 0)}")
 
         st.write("**Most common missing skills**")
         for skill, count in metrics.get("most_common_missing_skills", []):
