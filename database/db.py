@@ -19,6 +19,7 @@ except Exception:  # pragma: no cover - optional until installed
 
 
 DB_PATH = Path(__file__).resolve().parent / "applications.db"
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 LOGGER_NAME = "career_match"
 _ENGINE_LOGGED = False
 LEGACY_TAILORED_RESUME_KEYS = {

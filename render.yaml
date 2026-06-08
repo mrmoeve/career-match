@@ -2,14 +2,12 @@ services:
   - type: web
     name: career-match
     env: docker
-    plan: starter
+    plan: free
     autoDeploy: true
     dockerfilePath: ./Dockerfile
     healthCheckPath: /
     envVars:
       - key: OPENAI_API_KEY
-        sync: false
-      - key: DATABASE_URL
         sync: false
       - key: OPENAI_MODEL
         value: gpt-4.1-mini

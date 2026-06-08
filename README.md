@@ -114,7 +114,9 @@ This repo includes a production deployment scaffold for Render using Docker:
 
 - Platform: `Render`
 - Service type: `Docker web service`
-- Reason: straightforward Python deployment, persistent environment variables, HTTPS by default, and support for a reverse-proxy front end for PWA assets
+- Plan: `Free`
+- Default database mode: `SQLite`
+- Reason: straightforward Python deployment, HTTPS by default, and support for a reverse-proxy front end for PWA assets without requiring a separate database service
 
 ## Production environment variables
 
@@ -124,6 +126,7 @@ Required:
 
 Recommended:
 
+- `DATABASE_URL` only if you want to override SQLite and use PostgreSQL
 - `OPENAI_MODEL`
 - `APP_ENV=production`
 - `APP_LOG_LEVEL=INFO`
@@ -196,7 +199,7 @@ Use these checks after deployment:
 
 Typical monthly estimate for Render:
 
-- Starter web service: about `$7/month`
+- Free web service: `$0/month`
 - Sentry free tier: `$0` to start
 - OpenAI API: usage-based and separate from hosting
 
@@ -211,6 +214,13 @@ Typical monthly estimate for Render:
 
 - SQLite database file: `database/applications.db`
 - Log directory: `logs/`
+
+## Database behavior
+
+- SQLite is the default database engine whenever `DATABASE_URL` is not set.
+- PostgreSQL remains supported if `DATABASE_URL` is provided with a `postgres://` or `postgresql://` value.
+- The database schema initializes automatically at startup through `init_db()`.
+- On Render Free, SQLite uses local container file storage. This keeps the app self-contained, but local data is not durable across full redeploys or instance replacement.
 
 ## Diagnostics
 
